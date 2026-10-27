@@ -100,7 +100,7 @@ jobs:
             { echo "::error::the core library hasn't the port's backend"; exit 1; }
           mkdir -p artifacts
           cp "$apk" artifacts/mh4u-port-android.apk
-          shell="$GITHUB_WORKSPACE/mh4u/port/android-shell/app/build/outputs/apk/debug/app-debug.apk"
+          shell="$GITHUB_WORKSPACE/mh4u/port/android-shell/build/outputs/apk/debug/MH4UAndroidShell-debug.apk"
           test -f "$shell" || { echo "::error::custom Android shell APK missing"; exit 1; }
           # Ensure the second APK is a separate installable app, not a rename of Azahar.
           unzip -p "$shell" AndroidManifest.xml >/dev/null
