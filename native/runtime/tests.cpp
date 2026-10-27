@@ -94,6 +94,12 @@ int main() {
     const RHost host = runtime.host_api();
     assert(host.version == RC_HOST_VERSION);
     assert(host.ctx_size == sizeof(RCtx));
+    runtime.context().r[0] = 100;
+    host.call(&runtime.context(), 0x1000);
+    assert(runtime.context().r[0] == 102);
+    runtime.clear_error();
+    host.call(&runtime.context(), 0xDEAD);
+    assert(runtime.last_error() == "guest call callback failed");
     assert(host.slow_read(&runtime.context(), 12, 4) == 0x12345678);
     host.slow_write(&runtime.context(), 16, 0xCAFEBABE, 4);
     assert(runtime.read(16, 4, value) && value == 0xCAFEBABE);
