@@ -7,7 +7,9 @@ This directory is the first isolated host-runtime layer for the existing static 
 - A bounded byte-addressed guest-memory buffer with little-endian 8-, 16-, and 32-bit reads/writes.
 - A minimal guest function dispatch table for unit testing.
 - An `RHost` callback table compatible with `RC_HOST_VERSION`.
+- A `CodeModule` loader that opens a recompiled shared library, resolves `rc_code_init`, validates the host ABI, and retains `RCodeInfo` while the library remains loaded.
 - Explicit error reporting for unresolved guest calls, SVCs, traps, bad returns, budget exhaustion, and invalid slow memory access.
+- A CI test for empty module-path rejection.
 - CMake host tests intended to run in GitHub Actions.
 
 ## Not implemented yet
