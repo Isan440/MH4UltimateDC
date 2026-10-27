@@ -24,7 +24,7 @@ public:
     RCtx& context() noexcept { return ctx_; }
     const RCtx& context() const noexcept { return ctx_; }
 
-    bool read(std::uint32_t address, std::uint32_t size, std::uint32_t& value) const noexcept;
+    bool map_guest_memory(std::uint32_t address, std::uint32_t size);\n    bool unmap_guest_memory(std::uint32_t address, std::uint32_t size);\n    bool read(std::uint32_t address, std::uint32_t size, std::uint32_t& value) const noexcept;
     bool write(std::uint32_t address, std::uint32_t size, std::uint32_t value) noexcept;
     bool map_function(std::uint32_t address, std::uint32_t mode, RFunc fn);
     bool call(std::uint32_t target) noexcept;
