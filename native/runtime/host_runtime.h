@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+
 #include "../memory/guest_memory.h"
 
 extern "C" {
@@ -11,20 +12,19 @@ extern "C" {
 
 namespace mh4u::native_runtime {
 
-// First independent host layer for the existing recompiler ABI. This is not yet a
-// 3DS operating system, GPU, audio backend, or playable game runtime.
 class HostRuntime {
 public:
     explicit HostRuntime(std::uint32_t memory_size = 1024 * 1024);
     ~HostRuntime() = default;
-
     HostRuntime(const HostRuntime&) = delete;
     HostRuntime& operator=(const HostRuntime&) = delete;
 
     RCtx& context() noexcept { return ctx_; }
     const RCtx& context() const noexcept { return ctx_; }
 
-    bool map_guest_memory(std::uint32_t address, std::uint32_t size);\n    bool unmap_guest_memory(std::uint32_t address, std::uint32_t size);\n    bool read(std::uint32_t address, std::uint32_t size, std::uint32_t& value) const noexcept;
+    bool map_guest_memory(std::uint32_t address, std::uint32_t size);
+    bool unmap_guest_memory(std::uint32_t address, std::uint32_t size);
+    bool read(std::uint32_t address, std::uint32_t size, std::uint32_t& value) const noexcept;
     bool write(std::uint32_t address, std::uint32_t size, std::uint32_t value) noexcept;
     bool map_function(std::uint32_t address, std::uint32_t mode, RFunc fn);
     bool call(std::uint32_t target) noexcept;
