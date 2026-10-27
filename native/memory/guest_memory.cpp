@@ -26,8 +26,10 @@ bool GuestMemory::map(std::uint32_t address, std::uint32_t size) {
     }
 
     std::vector<std::unique_ptr<std::uint8_t[]>> pending;
-    pending.reserve(static_cast<std::size_t>(last - first) + 1);
+    const auto count = static_cast<std::size_t>(last - first) + 1;
     try {
+        pending.reserve(count);
+        owned_pages_.reserve(owned_pages_.size() + count);
         for (std::uint32_t i = first; i <= last; ++i) {
             auto p = std::make_unique<std::uint8_t[]>(kPageSize);
             std::memset(p.get(), 0, kPageSize);
