@@ -38,7 +38,7 @@ jobs:
           git checkout "$(cat ../mh4u/port/azahar/COMMIT)"
           git submodule update --init --recursive --depth 1
           git apply ../mh4u/port/azahar/azahar.patch
-          git apply ../mh4u/port/azahar/mh4u-home.patch
+          git apply --recount ../mh4u/port/azahar/mh4u-home.patch
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
