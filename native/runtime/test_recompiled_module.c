@@ -8,6 +8,9 @@ static const RFuncEntry test_table[] = {
     {0x3000u, 0u, test_guest_function},
 };
 
+#if defined(__GNUC__)
+__attribute__((visibility("default")))
+#endif
 int rc_code_init(const RHost *host, RCodeInfo *info) {
     if (host == 0 || info == 0) {
         return 0;
