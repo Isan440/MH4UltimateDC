@@ -2,6 +2,8 @@
 
 #include <dlfcn.h>
 
+#include <utility>
+
 namespace mh4u::native_runtime {
 
 CodeModule::~CodeModule() {
