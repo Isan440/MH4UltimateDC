@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 using mh4u::native_runtime::HostRuntime;
 
@@ -38,6 +39,25 @@ int main() {
     runtime.context().r[0] = 5;
     assert(runtime.call(0x3000u));
     assert(runtime.context().r[0] == 12);
+
+    // A conflicting registration must fail without disturbing the module's entry.
+    const RFuncEntry conflicting_entry{0x3000u, 0u, add_two};
+    std::vector<std::uint32_t> conflicting_keys;
+    assert(!runtime.register_code_table(&conflicting_entry, 1, conflicting_keys));
+    assert(conflicting_keys.empty());
+    runtime.context().r[0] = 5;
+    assert(runtime.call(0x3000u));
+    assert(runtime.context().r[0] == 12);
+
+    // Duplicate keys inside a candidate table are rejected atomically.
+    const RFuncEntry duplicate_entries[] = {
+        {0x5000u, 0u, add_two},
+        {0x5000u, 0u, add_two},
+    };
+    std::vector<std::uint32_t> duplicate_keys;
+    assert(!runtime.register_code_table(duplicate_entries, 2, duplicate_keys));
+    assert(duplicate_keys.empty());
+    assert(!runtime.call(0x5000u));
 
     module.unload();
     assert(!module.loaded());
