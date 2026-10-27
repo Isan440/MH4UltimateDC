@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <vector>
+#include "../memory/guest_memory.h"
 
 extern "C" {
 #include "../../tools/recomp/runtime/recomp.h"
@@ -46,7 +46,7 @@ private:
 
     static constexpr std::uint32_t kAddressModeBit = 1;
     RCtx ctx_{};
-    std::vector<std::uint8_t> memory_;
+    GuestMemory memory_;
     std::unordered_map<std::uint32_t, RFunc> functions_;
     std::string last_error_;
 };
