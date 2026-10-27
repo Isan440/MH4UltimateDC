@@ -41,6 +41,47 @@ bool HostRuntime::map_function(std::uint32_t address, std::uint32_t mode, RFunc 
     return inserted;
 }
 
+bool HostRuntime::register_code_table(const RFuncEntry* table, std::uint32_t count,
+                                      std::vector<std::uint32_t>& registered_keys) {
+    registered_keys.clear();
+    if (count != 0 && table == nullptr) {
+        last_error_ = "code module function table is null";
+        return false;
+    }
+
+    std::vector<std::uint32_t> keys;
+    keys.reserve(count);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (table[i].fn == nullptr || table[i].mode > 1) {
+            last_error_ = "code module contains an invalid function entry";
+            return false;
+        }
+        const auto key = (table[i].addr & ~kAddressModeBit) | table[i].mode;
+        for (const auto existing : keys) {
+            if (existing == key) {
+                last_error_ = "code module contains duplicate function addresses";
+                return false;
+            }
+        }
+        if (functions_.find(key) != functions_.end()) {
+            last_error_ = "code module function address already mapped";
+            return false;
+        }
+        keys.push_back(key);
+    }
+
+    for (std::uint32_t i = 0; i < count; ++i) {
+        functions_.emplace(keys[i], table[i].fn);
+    }
+    registered_keys = std::move(keys);
+    last_error_.clear();
+    return true;
+}
+
+void HostRuntime::unregister_code_table(const std::vector<std::uint32_t>& keys) noexcept {
+    for (const auto key : keys) functions_.erase(key);
+}
+
 bool HostRuntime::call(std::uint32_t target) noexcept {
     const auto it = functions_.find(target);
     if (it == functions_.end()) {
