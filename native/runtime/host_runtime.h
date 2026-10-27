@@ -14,7 +14,7 @@ namespace mh4u::native_runtime {
 
 class HostRuntime {
 public:
-    explicit HostRuntime(std::uint32_t memory_size = 1024 * 1024);
+    HostRuntime();
     ~HostRuntime() = default;
     HostRuntime(const HostRuntime&) = delete;
     HostRuntime& operator=(const HostRuntime&) = delete;
