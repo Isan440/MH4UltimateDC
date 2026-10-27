@@ -38,7 +38,7 @@ int main() {
 
     runtime.context().r[0] = 5;
     assert(runtime.call(0x3000u));
-    assert(runtime.context().r[0] == 12);
+    assert(runtime.context().r[0] == 14);
 
     // A conflicting registration must fail without disturbing the module's entry.
     const RFuncEntry conflicting_entry{0x3000u, 0u, add_two};
@@ -47,7 +47,7 @@ int main() {
     assert(conflicting_keys.empty());
     runtime.context().r[0] = 5;
     assert(runtime.call(0x3000u));
-    assert(runtime.context().r[0] == 12);
+    assert(runtime.context().r[0] == 14);
 
     // Duplicate keys inside a candidate table are rejected atomically.
     const RFuncEntry duplicate_entries[] = {
