@@ -1,14 +1,14 @@
 #include "host_runtime.h"
 
-#include <limits>
-
 namespace mh4u::native_runtime {
 
-HostRuntime::HostRuntime(std::uint32_t memory_size) {\n    (void)memory_size;
+HostRuntime::HostRuntime(std::uint32_t memory_size) {
+    (void)memory_size; // Kept temporarily for source compatibility with the initial test harness.
     ctx_ = RCtx{};
-    ctx_.mem = nullptr;\n    ctx_.pages = memory_.page_table();
+    ctx_.mem = nullptr;
+    ctx_.pages = memory_.page_table();
     ctx_.user = this;
-    ctx_.cpsr_misc = 0x10; // ARM user mode, matching the recompiler's initial convention.
+    ctx_.cpsr_misc = 0x10;
 }
 
 bool HostRuntime::read(std::uint32_t address, std::uint32_t size,
@@ -33,8 +33,7 @@ bool HostRuntime::map_function(std::uint32_t address, std::uint32_t mode, RFunc 
 }
 
 bool HostRuntime::call(std::uint32_t target) noexcept {
-    const auto key = target;
-    const auto it = functions_.find(key);
+    const auto it = functions_.find(target);
     if (it == functions_.end()) {
         last_error_ = "unmapped guest function target";
         return false;
