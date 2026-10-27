@@ -14,8 +14,12 @@ int main() {
     HostRuntime runtime;
     std::uint32_t value = 0;
 
+    assert(runtime.context().pages != nullptr);
     assert(runtime.map_guest_memory(0, 4096));
     assert(runtime.map_guest_memory(4096, 4096));
+    // The recompiler's RC_PAGED fast path consumes this exact page table.
+    assert(runtime.context().pages[0] != nullptr);
+    assert(runtime.context().pages[1] != nullptr);
     assert(runtime.write(4, 1, 0xAB));
     assert(runtime.read(4, 1, value) && value == 0xAB);
     assert(runtime.write(8, 2, 0xBEEF));
@@ -49,6 +53,7 @@ int main() {
     assert(runtime.last_error().find("guest trap") != std::string::npos);
 
     assert(runtime.unmap_guest_memory(4096, 4096));
+    assert(runtime.context().pages[1] == nullptr);
     assert(!runtime.read(4096, 1, value));
     return 0;
 }
