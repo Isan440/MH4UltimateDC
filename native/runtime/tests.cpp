@@ -35,6 +35,8 @@ int main() {
     assert(module.info().title_id == 0x0004000000123400ull);
     assert(!module.load(MH4U_TEST_MODULE_PATH, runtime));
     assert(module.loaded());
+    // Production rc_dll.c routes unmapped guest calls through this host callback.
+    assert(runtime.map_function(0x1000, 0, add_two));
 
     runtime.context().r[0] = 5;
     assert(runtime.call(0x3000u));
@@ -83,7 +85,6 @@ int main() {
     assert(runtime.read(4094, 4, value) && value == 0xA1B2C3D4);
     assert(!runtime.read(8192, 4, value));
     assert(!runtime.write(0, 3, 0));
-    assert(runtime.map_function(0x1000, 0, add_two));
     runtime.context().r[0] = 40;
     assert(runtime.call(0x1000));
     assert(runtime.context().r[0] == 42);
