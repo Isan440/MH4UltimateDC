@@ -14,12 +14,12 @@ target_compile_options(mh4u_native_runtime PRIVATE -Wall -Wextra -Wpedantic -ffp
 
 # A tiny ABI-compatible shared library exercises the same dlopen/dlsym path used by
 # generated game code, without requiring any copyrighted game assets.
-add_library(mh4u_test_recompiled_code SHARED test_recompiled_module.c)
+add_library(mh4u_test_recompiled_code SHARED test_recompiled_table.c ../../tools/recomp/runtime/rc_dll.c)
 target_include_directories(mh4u_test_recompiled_code PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/recomp/runtime")
 set_target_properties(mh4u_test_recompiled_code PROPERTIES
     C_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES)
-set_source_files_properties(test_recompiled_module.c PROPERTIES
+set_source_files_properties(test_recompiled_table.c PROPERTIES
     COMPILE_OPTIONS "-fvisibility=default")
 
 add_executable(mh4u_native_runtime_tests tests.cpp)
