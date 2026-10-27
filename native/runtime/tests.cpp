@@ -34,10 +34,17 @@ int main() {
     assert(module.info().title_id == 0x0004000000123400ull);
     assert(!module.load(MH4U_TEST_MODULE_PATH, runtime));
     assert(module.loaded());
+
+    runtime.context().r[0] = 5;
+    assert(runtime.call(0x3000u));
+    assert(runtime.context().r[0] == 12);
+
     module.unload();
     assert(!module.loaded());
     assert(module.info().table == nullptr);
     assert(module.info().count == 0);
+    assert(!runtime.call(0x3000u));
+    assert(runtime.last_error() == "unmapped guest function target");
 
     assert(runtime.context().pages != nullptr);
     assert(runtime.map_guest_memory(0, 4096));
