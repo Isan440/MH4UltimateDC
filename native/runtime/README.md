@@ -9,7 +9,7 @@ This directory is the first isolated host-runtime layer for the existing static 
 - An `RHost` callback table compatible with `RC_HOST_VERSION`.
 - A `CodeModule` loader that opens a recompiled shared library, resolves `rc_code_init`, validates the host ABI, and retains `RCodeInfo` while the library remains loaded.
 - Explicit error reporting for unresolved guest calls, SVCs, traps, bad returns, budget exhaustion, and invalid slow memory access.
-- A CI test for empty module-path rejection.
+- CI tests for empty module-path rejection and successful loading/metadata validation using a tiny ABI-compatible test shared library.
 - CMake host tests intended to run in GitHub Actions.
 
 ## Not implemented yet
