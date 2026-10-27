@@ -11,7 +11,7 @@ HostRuntime::HostRuntime(std::uint32_t memory_size) {
     ctx_.cpsr_misc = 0x10;
 }
 
-bool HostRuntime::read(std::uint32_t address, std::uint32_t size,
+bool HostRuntime::map_guest_memory(std::uint32_t address, std::uint32_t size) {\n    return memory_.map(address, size);\n}\n\nbool HostRuntime::unmap_guest_memory(std::uint32_t address, std::uint32_t size) {\n    return memory_.unmap(address, size);\n}\n\nbool HostRuntime::read(std::uint32_t address, std::uint32_t size,
                        std::uint32_t& value) const noexcept {
     return memory_.read(address, size, value);
 }
