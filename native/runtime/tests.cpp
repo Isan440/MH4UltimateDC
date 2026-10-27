@@ -29,5 +29,19 @@ int main() {
     assert(!runtime.call(0x2000));
     assert(!runtime.last_error().empty());
 
+    runtime.clear_error();
+    const RHost host = runtime.host_api();
+    assert(host.version == RC_HOST_VERSION);
+    assert(host.ctx_size == sizeof(RCtx));
+    assert(host.slow_read(&runtime.context(), 12, 4) == 0x12345678);
+    host.slow_write(&runtime.context(), 16, 0xCAFEBABE, 4);
+    assert(runtime.read(16, 4, value) && value == 0xCAFEBABE);
+    host.svc(&runtime.context(), 0x2A, 0x1004);
+    assert(runtime.last_error().find("unsupported SVC") != std::string::npos);
+
+    runtime.clear_error();
+    host.trap(&runtime.context(), 0x1010, RC_TRAP_UNSUPPORTED);
+    assert(runtime.last_error().find("guest trap") != std::string::npos);
+
     return 0;
 }
