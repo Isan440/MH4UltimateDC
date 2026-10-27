@@ -1,4 +1,5 @@
 #include "host_runtime.h"
+#include "code_module.h"
 
 #include <cassert>
 #include <cstdint>
@@ -13,6 +14,11 @@ static void add_two(RCtx* ctx) {
 int main() {
     HostRuntime runtime;
     std::uint32_t value = 0;
+
+    mh4u::native_runtime::CodeModule module;
+    assert(!module.load("", runtime));
+    assert(!module.loaded());
+    assert(!module.last_error().empty());
 
     assert(runtime.context().pages != nullptr);
     assert(runtime.map_guest_memory(0, 4096));
