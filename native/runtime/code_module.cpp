@@ -2,8 +2,6 @@
 
 #include <dlfcn.h>
 
-#include <utility>
-
 namespace mh4u::native_runtime {
 
 CodeModule::~CodeModule() {
@@ -50,13 +48,29 @@ bool CodeModule::load(const std::string& path, HostRuntime& runtime) {
         return false;
     }
 
+    std::vector<std::uint32_t> candidate_keys;
+    if (!runtime.register_code_table(candidate_info.table, candidate_info.count, candidate_keys)) {
+        last_error_ = runtime.last_error();
+        dlclose(candidate);
+        return false;
+    }
+
     handle_ = candidate;
+    runtime_ = &runtime;
+    registered_keys_ = std::move(candidate_keys);
     info_ = candidate_info;
     last_error_.clear();
     return true;
 }
 
 void CodeModule::unload() noexcept {
+    // Remove dispatch entries before unloading the library that owns their code.
+    if (runtime_ != nullptr) {
+        runtime_->unregister_code_table(registered_keys_);
+        runtime_ = nullptr;
+    }
+    registered_keys_.clear();
+
     if (handle_ != nullptr) {
         dlclose(handle_);
         handle_ = nullptr;
