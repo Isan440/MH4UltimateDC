@@ -20,6 +20,25 @@ int main() {
     assert(!module.loaded());
     assert(!module.last_error().empty());
 
+    assert(module.load(MH4U_TEST_MODULE_PATH, runtime));
+    assert(module.loaded());
+    assert(module.last_error().empty());
+    assert(module.info().table != nullptr);
+    assert(module.info().count == 1);
+    assert(module.info().table[0].addr == 0x3000u);
+    assert(module.info().table[0].mode == 0u);
+    assert(module.info().table[0].fn != nullptr);
+    assert(module.info().text_base == 0x3000u);
+    assert(module.info().text_size == 4u);
+    assert(module.info().text_crc32 == 0x4D483455u);
+    assert(module.info().title_id == 0x0004000000123400ull);
+    assert(!module.load(MH4U_TEST_MODULE_PATH, runtime));
+    assert(module.loaded());
+    module.unload();
+    assert(!module.loaded());
+    assert(module.info().table == nullptr);
+    assert(module.info().count == 0);
+
     assert(runtime.context().pages != nullptr);
     assert(runtime.map_guest_memory(0, 4096));
     assert(runtime.map_guest_memory(4096, 4096));
