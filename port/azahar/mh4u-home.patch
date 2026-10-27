@@ -1,0 +1,114 @@
+diff --git a/src/android/app/src/main/AndroidManifest.xml b/src/android/app/src/main/AndroidManifest.xml
+index 42096fc..0000000 100644
+--- a/src/android/app/src/main/AndroidManifest.xml
++++ b/src/android/app/src/main/AndroidManifest.xml
+@@ -47,6 +47,17 @@
+         <meta-data android:name="android.game_mode_config"
+             android:resource="@xml/game_mode_config" />
+ 
++        <activity
++            android:name="org.citra.citra_emu.MH4UHomeActivity"
++            android:theme="@style/Theme.Citra.Main"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN"/>
++                <category android:name="android.intent.category.LAUNCHER"/>
++            </intent-filter>
++        </activity>
++
+         <activity
+             android:name="org.citra.citra_emu.ui.main.MainActivity"
+             android:theme="@style/Theme.Citra.Splash.Main"
+             android:exported="true">
+ 
+             <!-- This intentfilter marks this Activity as the one that gets launched from Home screen. -->
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN"/>
+-                <category android:name="android.intent.category.LAUNCHER"/>
+                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
+             </intent-filter>
+         </activity>
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/MH4UHomeActivity.java b/src/android/app/src/main/java/org/citra/citra_emu/MH4UHomeActivity.java
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/android/app/src/main/java/org/citra/citra_emu/MH4UHomeActivity.java
+@@ -0,0 +1,88 @@
++package org.citra.citra_emu;
++
++import android.app.Activity;
++import android.content.Intent;
++import android.graphics.Color;
++import android.os.Bundle;
++import android.view.Gravity;
++import android.view.ViewGroup;
++import android.widget.Button;
++import android.widget.LinearLayout;
++import android.widget.TextView;
++
++/**
++ * First integrated MH4U home screen.
++ *
++ * This activity lives in the Azahar Android app module, so it is packaged in the same APK as
++ * libcitra-android.so and the MH4U backend. It deliberately delegates game selection to the
++ * existing library screen until the custom MH4U library UI is implemented.
++ */
++public final class MH4UHomeActivity extends Activity {
++    private int dp(int value) {
++        return Math.round(value * getResources().getDisplayMetrics().density);
++    }
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++
++        LinearLayout root = new LinearLayout(this);
++        root.setOrientation(LinearLayout.VERTICAL);
++        root.setGravity(Gravity.CENTER_VERTICAL);
++        root.setPadding(dp(24), dp(24), dp(24), dp(24));
++        root.setBackgroundColor(Color.rgb(16, 20, 29));
++
++        TextView title = new TextView(this);
++        title.setText("MONSTER HUNTER 4 ULTIMATE");
++        title.setTextColor(Color.rgb(243, 245, 250));
++        title.setTextSize(23);
++        title.setGravity(Gravity.CENTER);
++        root.addView(title, new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++
++        TextView subtitle = new TextView(this);
++        subtitle.setText("MH4U Android • Native backend build");
++        subtitle.setTextColor(Color.rgb(155, 170, 195));
++        subtitle.setTextSize(14);
++        subtitle.setGravity(Gravity.CENTER);
++        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
++        subtitleParams.topMargin = dp(10);
++        root.addView(subtitle, subtitleParams);
++
++        TextView status = new TextView(this);
++        status.setText("Backend: packaged in this app\nGame data: select your own legally obtained files");
++        status.setTextColor(Color.rgb(226, 232, 240));
++        status.setTextSize(15);
++        status.setGravity(Gravity.CENTER);
++        status.setLineSpacing(dp(5), 1.0f);
++        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
++        statusParams.topMargin = dp(28);
++        root.addView(status, statusParams);
++
++        Button library = new Button(this);
++        library.setText("Open game library");
++        library.setOnClickListener(view -> {
++            Intent intent = new Intent();
++            intent.setClassName(this, "org.citra.citra_emu.ui.main.MainActivity");
++            startActivity(intent);
++        });
++        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
++        buttonParams.topMargin = dp(24);
++        root.addView(library, buttonParams);
++
++        setContentView(root);
++    }
++}
