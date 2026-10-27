@@ -1,12 +1,14 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "host_runtime.h"
 
 namespace mh4u::native_runtime {
 
-// Owns a recompiled-code shared library and the RCodeInfo exported by rc_code_init.
+// Owns a recompiled-code shared library and registers its RCodeInfo table.
 // The module must outlive any calls through its function table.
 class CodeModule {
 public:
@@ -24,6 +26,8 @@ public:
 
 private:
     void* handle_ = nullptr;
+    HostRuntime* runtime_ = nullptr;
+    std::vector<std::uint32_t> registered_keys_;
     RCodeInfo info_{};
     std::string last_error_;
 };
