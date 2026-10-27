@@ -11,5 +11,7 @@ target_compile_options(mh4u_native_runtime PRIVATE -Wall -Wextra -Wpedantic -ffp
 
 add_executable(mh4u_native_runtime_tests tests.cpp)
 target_link_libraries(mh4u_native_runtime_tests PRIVATE mh4u_native_runtime)
+# Release builds define NDEBUG; keep assert-based test checks active in CI.
+target_compile_options(mh4u_native_runtime_tests PRIVATE -UNDEBUG)
 enable_testing()
 add_test(NAME native_runtime_basics COMMAND mh4u_native_runtime_tests)
