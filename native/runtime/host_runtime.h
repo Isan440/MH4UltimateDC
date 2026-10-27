@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "../memory/guest_memory.h"
 
@@ -27,6 +28,9 @@ public:
     bool read(std::uint32_t address, std::uint32_t size, std::uint32_t& value) const noexcept;
     bool write(std::uint32_t address, std::uint32_t size, std::uint32_t value) noexcept;
     bool map_function(std::uint32_t address, std::uint32_t mode, RFunc fn);
+    bool register_code_table(const RFuncEntry* table, std::uint32_t count,
+                             std::vector<std::uint32_t>& registered_keys);
+    void unregister_code_table(const std::vector<std::uint32_t>& keys) noexcept;
     bool call(std::uint32_t target) noexcept;
     RHost host_api() const noexcept;
 
