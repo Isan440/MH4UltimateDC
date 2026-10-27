@@ -48,7 +48,8 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ccache
           # (yes ends on a closed pipe: not a failure)
-          (yes || true) | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "cmake;3.30.3" "ndk;$NDK_VERSION" >/dev/null
+          (yes || true) | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "cmake;3.30.3" "ndk;$NDK_VERSION" "platforms;android-36" "build-tools;36.0.0" >/dev/null
       - name: Compiler and Gradle caches
         uses: actions/cache@v4
         with:
@@ -79,6 +80,11 @@ jobs:
             -Pmh4uAppLabel=MH4U
           rm -f "${ANDROID_KEYSTORE_FILE:-/nonexistent}"
           ccache -s
+      - name: Build the separate native Android shell
+        run: |
+          cd azahar/src/android
+          chmod +x ./gradlew
+          ./gradlew -p "$GITHUB_WORKSPACE/mh4u/port/android-shell" assembleDebug --no-daemon --console=plain
       - name: Check the package
         run: |
           apk=$(ls azahar/src/android/app/build/outputs/apk/vanilla/release/*.apk | head -n 1)
@@ -94,6 +100,11 @@ jobs:
             { echo "::error::the core library hasn't the port's backend"; exit 1; }
           mkdir -p artifacts
           cp "$apk" artifacts/mh4u-port-android.apk
+          shell="$GITHUB_WORKSPACE/mh4u/port/android-shell/build/outputs/apk/debug/android-shell-debug.apk"
+          test -f "$shell" || { echo "::error::custom Android shell APK missing"; exit 1; }
+          # Ensure the second APK is a separate installable app, not a rename of Azahar.
+          unzip -p "$shell" AndroidManifest.xml >/dev/null
+          cp "$shell" artifacts/mh4u-native-shell-debug.apk
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
