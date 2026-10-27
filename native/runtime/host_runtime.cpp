@@ -1,5 +1,6 @@
 #include "host_runtime.h"
 
+#include <algorithm>
 #include <utility>
 
 namespace mh4u::native_runtime {
@@ -56,24 +57,43 @@ bool HostRuntime::register_code_table(const RFuncEntry* table, std::uint32_t cou
             last_error_ = "code module contains an invalid function entry";
             return false;
         }
-        const auto key = (table[i].addr & ~kAddressModeBit) | table[i].mode;
-        for (const auto existing : keys) {
-            if (existing == key) {
-                last_error_ = "code module contains duplicate function addresses";
-                return false;
-            }
-        }
+        keys.push_back((table[i].addr & ~kAddressModeBit) | table[i].mode);
+    }
+
+    // Sort once so duplicate validation scales as O(n log n), not O(n^2).
+    std::sort(keys.begin(), keys.end());
+    if (std::adjacent_find(keys.begin(), keys.end()) != keys.end()) {
+        last_error_ = "code module contains duplicate function addresses";
+        return false;
+    }
+    for (const auto key : keys) {
         if (functions_.find(key) != functions_.end()) {
             last_error_ = "code module function address already mapped";
             return false;
         }
-        keys.push_back(key);
     }
 
-    for (std::uint32_t i = 0; i < count; ++i) {
-        functions_.emplace(keys[i], table[i].fn);
+    // Insert only after all entries validate. Roll back if allocation/insertion fails.
+    std::vector<std::uint32_t> inserted_keys;
+    inserted_keys.reserve(count);
+    try {
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const auto key = (table[i].addr & ~kAddressModeBit) | table[i].mode;
+            const auto inserted = functions_.emplace(key, table[i].fn).second;
+            if (!inserted) {
+                for (const auto inserted_key : inserted_keys) functions_.erase(inserted_key);
+                last_error_ = "code module function address already mapped";
+                return false;
+            }
+            inserted_keys.push_back(key);
+        }
+    } catch (...) {
+        for (const auto inserted_key : inserted_keys) functions_.erase(inserted_key);
+        last_error_ = "failed to allocate code module function registrations";
+        return false;
     }
-    registered_keys = std::move(keys);
+
+    registered_keys = std::move(inserted_keys);
     last_error_.clear();
     return true;
 }
