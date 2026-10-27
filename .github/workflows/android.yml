@@ -1,8 +1,7 @@
 name: Android build
 
-# Azahar's Android app at the commit in port/azahar/COMMIT, with port/azahar/azahar.patch and the
-# port's CPU backend and hooks (-Pmh4uPortDir), built for arm64 as Azahar's own CI builds it, under
-# an id and a name of its own (it installs next to Azahar). It contains no game code: the game's
+# One MH4U Android APK: Azahar's Android app with the port backend and integrated MH4U home screen.
+# The separate shell prototype is not packaged as a second APK. It contains no game code: the game's
 # code library is built on the player's PC from their own dump (tools/build_game.py --android) and
 # copied into Azahar's user folder on the device, where the app loads it from (port/src/frontend.cpp).
 # Published under the repository's licence (GPL-3.0-or-later, like Azahar) with the matching source.
@@ -39,6 +38,7 @@ jobs:
           git checkout "$(cat ../mh4u/port/azahar/COMMIT)"
           git submodule update --init --recursive --depth 1
           git apply ../mh4u/port/azahar/azahar.patch
+          git apply ../mh4u/port/azahar/mh4u-home.patch
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -80,11 +80,6 @@ jobs:
             -Pmh4uAppLabel=MH4U
           rm -f "${ANDROID_KEYSTORE_FILE:-/nonexistent}"
           ccache -s
-      - name: Build the separate native Android shell
-        run: |
-          cd azahar/src/android
-          chmod +x ./gradlew
-          ./gradlew -p "$GITHUB_WORKSPACE/mh4u/port/android-shell" assembleDebug --no-daemon --console=plain
       - name: Check the package
         run: |
           apk=$(ls azahar/src/android/app/build/outputs/apk/vanilla/release/*.apk | head -n 1)
@@ -100,11 +95,6 @@ jobs:
             { echo "::error::the core library hasn't the port's backend"; exit 1; }
           mkdir -p artifacts
           cp "$apk" artifacts/mh4u-port-android.apk
-          shell="$GITHUB_WORKSPACE/mh4u/port/android-shell/build/outputs/apk/debug/MH4UAndroidShell-debug.apk"
-          test -f "$shell" || { echo "::error::custom Android shell APK missing"; exit 1; }
-          # Ensure the second APK is a separate installable app, not a rename of Azahar.
-          unzip -p "$shell" AndroidManifest.xml >/dev/null
-          cp "$shell" artifacts/mh4u-native-shell-debug.apk
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
