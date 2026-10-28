@@ -171,15 +171,17 @@ index 0000000..1111111
 +        launchParams.topMargin = dp(10);
 +        root.addView(launchButton, launchParams);
 +
-+        Button library = makeButton("GAME LIBRARY  •  BROWSE", Color.rgb(55, 42, 31));
-+        library.setOnClickListener(view -> {
-+            Intent intent = new Intent();
-+            intent.setClassName(this, "org.citra.citra_emu.ui.main.MainActivity");
-+            startActivity(intent);
-+        });
-+        LinearLayout.LayoutParams libraryParams = matchWrap();
-+        libraryParams.topMargin = dp(10);
-+        root.addView(library, libraryParams);
++        Button settings = makeButton("SETTINGS  •  OPTIONS", Color.rgb(55, 42, 31));
++        settings.setOnClickListener(view -> showSettings());
++        LinearLayout.LayoutParams settingsParams = matchWrap();
++        settingsParams.topMargin = dp(10);
++        root.addView(settings, settingsParams);
++
++        Button about = makeButton("ABOUT  •  PORT INFO", Color.rgb(38, 35, 32));
++        about.setOnClickListener(view -> showAbout());
++        LinearLayout.LayoutParams aboutParams = matchWrap();
++        aboutParams.topMargin = dp(8);
++        root.addView(about, aboutParams);
 +        setContentView(root);
 +    }
 +
@@ -300,6 +302,29 @@ index 0000000..1111111
 +
 +    private String formatBytes(long bytes) {
 +        return String.format(java.util.Locale.US, "%.2f GB", bytes / (1024.0 * 1024 * 1024));
++    }
++
++    private void showSettings() {
++        new AlertDialog.Builder(this)
++                .setTitle("MH4U SETTINGS")
++                .setMessage("Launcher settings are managed here.\n\nGame file: "
++                        + (gameFile == null ? "Not selected" : gameFile.getName())
++                        + "\n\nGraphics and controller options still use the Azahar backend. "
++                        + "Native controls will be added after auditing the backend settings API.")
++                .setPositiveButton("OK", null)
++                .setNeutralButton("CHANGE GAME", (dialog, which) -> chooseGame())
++                .show();
++    }
++
++    private void showAbout() {
++        new AlertDialog.Builder(this)
++                .setTitle("ABOUT MH4U ANDROID PORT")
++                .setMessage("Monster Hunter 4 Ultimate • USA v1.3.0\n\n"
++                        + "Android native launcher with Azahar 3DS backend.\n"
++                        + "The game image is supplied by the user and is not bundled in this APK.\n\n"
++                        + "Build status does not guarantee gameplay; test on your device.")
++                .setPositiveButton("OK", null)
++                .show();
 +    }
 +
 +    private void launchGame() {
