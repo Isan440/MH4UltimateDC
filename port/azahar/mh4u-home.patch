@@ -1,34 +1,4 @@
 diff --git a/src/android/app/src/main/AndroidManifest.xml b/src/android/app/src/main/AndroidManifest.xml
-index 42096fc..0000000 100644
---- a/src/android/app/src/main/AndroidManifest.xml
-+++ b/src/android/app/src/main/AndroidManifest.xml
-@@ -47,6 +47,17 @@
-         <meta-data android:name="android.game_mode_config"
-             android:resource="@xml/game_mode_config" />
- 
-+        <activity
-+            android:name="org.citra.citra_emu.MH4UHomeActivity"
-+            android:theme="@style/Theme.Citra.Main"
-+            android:exported="true">
-+            <intent-filter>
-+                <action android:name="android.intent.action.MAIN"/>
-+                <category android:name="android.intent.category.LAUNCHER"/>
-+            </intent-filter>
-+        </activity>
-+
-         <activity
-             android:name="org.citra.citra_emu.ui.main.MainActivity"
-             android:theme="@style/Theme.Citra.Splash.Main"
-             android:exported="true">
- 
-             <!-- This intentfilter marks this Activity as the one that gets launched from Home screen. -->
-             <intent-filter>
-                 <action android:name="android.intent.action.MAIN"/>
--                <category android:name="android.intent.category.LAUNCHER"/>
-                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
-             </intent-filter>
-         </activity>
-diff --git a/src/android/app/src/main/AndroidManifest.xml b/src/android/app/src/main/AndroidManifest.xml
 index 42096fc..1111111 100644
 --- a/src/android/app/src/main/AndroidManifest.xml
 +++ b/src/android/app/src/main/AndroidManifest.xml
