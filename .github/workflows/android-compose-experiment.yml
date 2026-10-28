@@ -4,6 +4,11 @@ name: Android standalone Compose experiment
 # Keep android.yml untouched as the fallback. This workflow never packages a ROM
 # or a generated game-code library; those must come from the player's own dump.
 on:
+  push:
+    branches: [android-native-port]
+    paths:
+      - "port/**"
+      - ".github/workflows/android-compose-experiment.yml"
   workflow_dispatch:
     inputs:
       azahar_repo:
