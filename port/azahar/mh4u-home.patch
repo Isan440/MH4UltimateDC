@@ -305,13 +305,29 @@ index 0000000..1111111
 +    }
 +
 +    private void showSettings() {
++        String[] options = {
++                "Swap top and bottom screens",
++                "Show touch controls overlay",
++                "Haptic feedback"
++        };
++        android.content.SharedPreferences prefs =
++                androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
++        boolean[] checked = {
++                prefs.getBoolean("EmulationMenuSettings_SwapScreens", false),
++                prefs.getBoolean("EmulationMenuSettings_ShowOverlay", true),
++                prefs.getBoolean("EmulationMenuSettings_HapticFeedback", true)
++        };
 +        new AlertDialog.Builder(this)
 +                .setTitle("MH4U SETTINGS")
-+                .setMessage("Launcher settings are managed here.\n\nGame file: "
-+                        + (gameFile == null ? "Not selected" : gameFile.getName())
-+                        + "\n\nGraphics and controller options still use the Azahar backend. "
-+                        + "Native controls will be added after auditing the backend settings API.")
-+                .setPositiveButton("OK", null)
++                .setMultiChoiceItems(options, checked, (dialog, which, isChecked) -> {
++                    String key;
++                    if (which == 0) key = "EmulationMenuSettings_SwapScreens";
++                    else if (which == 1) key = "EmulationMenuSettings_ShowOverlay";
++                    else key = "EmulationMenuSettings_HapticFeedback";
++                    prefs.edit().putBoolean(key, isChecked).apply();
++                })
++                .setMessage("These options are saved on this device. Graphics quality and controller mapping require a separate native settings integration.")
++                .setPositiveButton("DONE", null)
 +                .setNeutralButton("CHANGE GAME", (dialog, which) -> chooseGame())
 +                .show();
 +    }
