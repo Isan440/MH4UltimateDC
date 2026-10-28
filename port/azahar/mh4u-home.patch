@@ -57,7 +57,7 @@ index 0000000..1111111
 + * existing library screen until the custom MH4U library UI is implemented.
 + */
 +public final class MH4UHomeActivity extends Activity {
-+    private ActivityResultLauncher<String[]> gamePicker;
++    private static final int REQUEST_GAME_FILE = 4104;
 +
 +    private int dp(int value) {
 +        return Math.round(value * getResources().getDisplayMetrics().density);
@@ -128,12 +128,30 @@ index 0000000..1111111
 +
 +        Button quickLaunch = new Button(this);
 +        quickLaunch.setText("PILIH FILE GAME  •  QUICK LAUNCH");
-+        quickLaunch.setOnClickListener(view -> gamePicker.launch(new String[] { "*/*" }));
++        quickLaunch.setOnClickListener(view -> {
++            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
++            pick.addCategory(Intent.CATEGORY_OPENABLE);
++            pick.setType("*/*");
++            startActivityForResult(pick, REQUEST_GAME_FILE);
++        });
 +        LinearLayout.LayoutParams quickLaunchParams = new LinearLayout.LayoutParams(
 +                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 +        quickLaunchParams.topMargin = dp(10);
 +        root.addView(quickLaunch, quickLaunchParams);
 +
 +        setContentView(root);
++    }
++
++    @Override
++    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
++        super.onActivityResult(requestCode, resultCode, data);
++        if (requestCode != REQUEST_GAME_FILE || resultCode != RESULT_OK || data == null) return;
++        android.net.Uri uri = data.getData();
++        if (uri == null) return;
++        Intent launch = new Intent(Intent.ACTION_VIEW);
++        launch.setClassName(this, "org.citra.citra_emu.activities.EmulationActivity");
++        launch.setDataAndType(uri, "application/octet-stream");
++        launch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
++        startActivity(launch);
 +    }
 +}
