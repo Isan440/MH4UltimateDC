@@ -38,6 +38,8 @@ index 0000000..1111111
 +
 +import android.app.Activity;
 +import android.content.Intent;
++import androidx.activity.result.ActivityResultLauncher;
++import androidx.activity.result.contract.ActivityResultContracts;
 +import android.graphics.Color;
 +import android.graphics.Typeface;
 +import android.os.Bundle;
@@ -55,6 +57,8 @@ index 0000000..1111111
 + * existing library screen until the custom MH4U library UI is implemented.
 + */
 +public final class MH4UHomeActivity extends Activity {
++    private ActivityResultLauncher<String[]> gamePicker;
++
 +    private int dp(int value) {
 +        return Math.round(value * getResources().getDisplayMetrics().density);
 +    }
@@ -62,6 +66,15 @@ index 0000000..1111111
 +    @Override
 +    protected void onCreate(Bundle savedInstanceState) {
 +        super.onCreate(savedInstanceState);
++
++        gamePicker = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
++            if (uri == null) return;
++            Intent launch = new Intent(Intent.ACTION_VIEW);
++            launch.setClassName(this, "org.citra.citra_emu.activities.EmulationActivity");
++            launch.setDataAndType(uri, "application/octet-stream");
++            launch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
++            startActivity(launch);
++        });
 +
 +        LinearLayout root = new LinearLayout(this);
 +        root.setOrientation(LinearLayout.VERTICAL);
@@ -112,6 +125,14 @@ index 0000000..1111111
 +                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 +        buttonParams.topMargin = dp(24);
 +        root.addView(library, buttonParams);
++
++        Button quickLaunch = new Button(this);
++        quickLaunch.setText("PILIH FILE GAME  •  QUICK LAUNCH");
++        quickLaunch.setOnClickListener(view -> gamePicker.launch(new String[] { "*/*" }));
++        LinearLayout.LayoutParams quickLaunchParams = new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
++        quickLaunchParams.topMargin = dp(10);
++        root.addView(quickLaunch, quickLaunchParams);
 +
 +        setContentView(root);
 +    }
