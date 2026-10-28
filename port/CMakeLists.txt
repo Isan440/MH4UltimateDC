@@ -36,6 +36,11 @@ if(ANDROID)
     target_sources(mh4u_backend PRIVATE src/fiber_arm64.S)
 endif()
 
+if(ANDROID)
+    # Build the standalone Kotlin/JNI frontend as an actual CMake target for AGP packaging.
+    add_subdirectory(android/jni)
+endif()
+
 if(NOT ANDROID)
     add_executable(mh4u_runner src/runner.cpp)
     target_include_directories(mh4u_runner PRIVATE "${MH4U_RUNTIME_DIR}")
