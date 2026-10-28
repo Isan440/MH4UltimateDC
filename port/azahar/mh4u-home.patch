@@ -28,35 +28,104 @@ index 42096fc..0000000 100644
                  <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
              </intent-filter>
          </activity>
+diff --git a/src/android/app/src/main/AndroidManifest.xml b/src/android/app/src/main/AndroidManifest.xml
+index 42096fc..1111111 100644
+--- a/src/android/app/src/main/AndroidManifest.xml
++++ b/src/android/app/src/main/AndroidManifest.xml
+@@ -47,6 +47,23 @@
+         <meta-data android:name="android.game_mode_config"
+             android:resource="@xml/game_mode_config" />
+ 
++        <provider
++            android:name="androidx.core.content.FileProvider"
++            android:authorities="${applicationId}.mh4u.files"
++            android:exported="false"
++            android:grantUriPermissions="true">
++            <meta-data
++                android:name="android.support.FILE_PROVIDER_PATHS"
++                android:resource="@xml/mh4u_file_paths" />
++        </provider>
++
++        <activity
++            android:name="org.citra.citra_emu.MH4UHomeActivity"
++            android:theme="@style/Theme.Citra.Main"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN"/>
++                <category android:name="android.intent.category.LAUNCHER"/>
++            </intent-filter>
++        </activity>
++
+         <activity
+             android:name="org.citra.citra_emu.ui.main.MainActivity"
+             android:theme="@style/Theme.Citra.Splash.Main"
+             android:exported="true">
+ 
+             <!-- This intentfilter marks this Activity as the one that gets launched from Home screen. -->
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN"/>
+-                <category android:name="android.intent.category.LAUNCHER"/>
+                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
+             </intent-filter>
+         </activity>
+diff --git a/src/android/app/src/main/res/xml/mh4u_file_paths.xml b/src/android/app/src/main/res/xml/mh4u_file_paths.xml
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/android/app/src/main/res/xml/mh4u_file_paths.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<paths xmlns:android="http://schemas.android.com/apk/res/android">
++    <files-path name="mh4u_games" path="games/" />
++</paths>
 diff --git a/src/android/app/src/main/java/org/citra/citra_emu/MH4UHomeActivity.java b/src/android/app/src/main/java/org/citra/citra_emu/MH4UHomeActivity.java
 new file mode 100644
 index 0000000..1111111
 --- /dev/null
 +++ b/src/android/app/src/main/java/org/citra/citra_emu/MH4UHomeActivity.java
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,225 @@
 +package org.citra.citra_emu;
 +
 +import android.app.Activity;
++import android.app.AlertDialog;
 +import android.content.Intent;
 +import android.content.res.ColorStateList;
++import android.database.Cursor;
 +import android.graphics.Color;
 +import android.graphics.Typeface;
++import android.net.Uri;
 +import android.os.Bundle;
++import android.provider.OpenableColumns;
 +import android.view.Gravity;
++import android.view.View;
 +import android.view.ViewGroup;
 +import android.widget.Button;
 +import android.widget.LinearLayout;
++import android.widget.ProgressBar;
 +import android.widget.TextView;
++import android.widget.Toast;
++
++import androidx.core.content.FileProvider;
++
++import java.io.File;
++import java.io.FileInputStream;
++import java.io.FileOutputStream;
++import java.io.InputStream;
++import java.io.OutputStream;
 +
 +/**
-+ * First integrated MH4U home screen.
-+ *
-+ * This activity lives in the Azahar Android app module, so it is packaged in the same APK as
-+ * libcitra-android.so and the MH4U backend. It deliberately delegates game selection to the
-+ * existing library screen until the custom MH4U library UI is implemented.
++ * MH4U home screen. Imports the player's own game file into private app storage and remembers it.
++ * SAF grants access only to the file selected by the player; no broad storage permission is needed.
 + */
 +public final class MH4UHomeActivity extends Activity {
 +    private static final int REQUEST_GAME_FILE = 4104;
++    private static final String PREFS = "mh4u_home";
++    private static final String PREF_GAME = "imported_game";
++    private TextView status;
++    private Button launchButton;
++    private Button importButton;
++    private ProgressBar progress;
++    private File gameFile;
 +
 +    private int dp(int value) {
 +        return Math.round(value * getResources().getDisplayMetrics().density);
@@ -65,11 +134,22 @@ index 0000000..1111111
 +    @Override
 +    protected void onCreate(Bundle savedInstanceState) {
 +        super.onCreate(savedInstanceState);
++        File games = new File(getFilesDir(), "games");
++        if (!games.exists()) games.mkdirs();
++        String saved = getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_GAME, "");
++        if (!saved.isEmpty()) {
++            File candidate = new File(saved);
++            if (candidate.isFile() && candidate.length() > 0) gameFile = candidate;
++        }
++        buildUi();
++        refreshStatus();
++    }
 +
++    private void buildUi() {
 +        LinearLayout root = new LinearLayout(this);
 +        root.setOrientation(LinearLayout.VERTICAL);
 +        root.setGravity(Gravity.CENTER_VERTICAL);
-+        root.setPadding(dp(28), dp(32), dp(28), dp(28));
++        root.setPadding(dp(28), dp(24), dp(28), dp(24));
 +        root.setBackgroundColor(Color.rgb(12, 12, 14));
 +
 +        TextView title = new TextView(this);
@@ -78,73 +158,192 @@ index 0000000..1111111
 +        title.setTextSize(30);
 +        title.setTypeface(Typeface.DEFAULT_BOLD);
 +        title.setGravity(Gravity.CENTER);
-+        root.addView(title, new LinearLayout.LayoutParams(
-+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++        root.addView(title, matchWrap());
 +
 +        TextView subtitle = new TextView(this);
 +        subtitle.setText("HUNTER'S GUILD  •  USA v1.3.0");
 +        subtitle.setTextColor(Color.rgb(190, 151, 82));
 +        subtitle.setTextSize(14);
 +        subtitle.setGravity(Gravity.CENTER);
-+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
-+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
++        LinearLayout.LayoutParams subtitleParams = matchWrap();
 +        subtitleParams.topMargin = dp(10);
 +        root.addView(subtitle, subtitleParams);
 +
-+        TextView status = new TextView(this);
-+        status.setText("HUNTER STATUS  •  READY\n\nARM64 backend integrated\nSelect your own game file to begin");
++        status = new TextView(this);
 +        status.setTextColor(Color.rgb(239, 230, 205));
-+        status.setTextSize(15);
++        status.setTextSize(14);
 +        status.setPadding(dp(18), dp(18), dp(18), dp(18));
 +        status.setBackgroundColor(Color.rgb(30, 24, 20));
 +        status.setGravity(Gravity.CENTER);
-+        status.setLineSpacing(dp(5), 1.0f);
-+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
-+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-+        statusParams.topMargin = dp(28);
++        status.setLineSpacing(dp(4), 1.0f);
++        LinearLayout.LayoutParams statusParams = matchWrap();
++        statusParams.topMargin = dp(24);
 +        root.addView(status, statusParams);
 +
-+        Button library = new Button(this);
-+        library.setText("GAME LIBRARY  •  BROWSE");
-+        library.setTextColor(Color.rgb(239, 230, 205));
-+        library.setBackgroundTintList(ColorStateList.valueOf(Color.rgb(55, 42, 31)));
++        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
++        progress.setVisibility(View.GONE);
++        LinearLayout.LayoutParams progressParams = matchWrap();
++        progressParams.topMargin = dp(12);
++        root.addView(progress, progressParams);
++
++        importButton = makeButton("SETUP  •  IMPORT GAME", Color.rgb(55, 42, 31));
++        importButton.setOnClickListener(view -> chooseGame());
++        LinearLayout.LayoutParams importParams = matchWrap();
++        importParams.topMargin = dp(20);
++        root.addView(importButton, importParams);
++
++        launchButton = makeButton("PLAY  •  LAUNCH GAME", Color.rgb(157, 24, 42));
++        launchButton.setOnClickListener(view -> launchGame());
++        LinearLayout.LayoutParams launchParams = matchWrap();
++        launchParams.topMargin = dp(10);
++        root.addView(launchButton, launchParams);
++
++        Button library = makeButton("GAME LIBRARY  •  BROWSE", Color.rgb(55, 42, 31));
 +        library.setOnClickListener(view -> {
 +            Intent intent = new Intent();
 +            intent.setClassName(this, "org.citra.citra_emu.ui.main.MainActivity");
 +            startActivity(intent);
 +        });
-+        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
-+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-+        buttonParams.topMargin = dp(24);
-+        root.addView(library, buttonParams);
-+
-+        Button quickLaunch = new Button(this);
-+        quickLaunch.setText("LAUNCH  •  SELECT GAME FILE");
-+        quickLaunch.setTextColor(Color.WHITE);
-+        quickLaunch.setBackgroundTintList(ColorStateList.valueOf(Color.rgb(157, 24, 42)));
-+        quickLaunch.setOnClickListener(view -> {
-+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-+            pick.addCategory(Intent.CATEGORY_OPENABLE);
-+            pick.setType("*/*");
-+            startActivityForResult(pick, REQUEST_GAME_FILE);
-+        });
-+        LinearLayout.LayoutParams quickLaunchParams = new LinearLayout.LayoutParams(
-+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-+        quickLaunchParams.topMargin = dp(10);
-+        root.addView(quickLaunch, quickLaunchParams);
-+
++        LinearLayout.LayoutParams libraryParams = matchWrap();
++        libraryParams.topMargin = dp(10);
++        root.addView(library, libraryParams);
 +        setContentView(root);
 +    }
 +
++    private LinearLayout.LayoutParams matchWrap() {
++        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
++                ViewGroup.LayoutParams.WRAP_CONTENT);
++    }
++
++    private Button makeButton(String text, int color) {
++        Button button = new Button(this);
++        button.setText(text);
++        button.setTextColor(Color.rgb(255, 255, 255));
++        button.setBackgroundTintList(ColorStateList.valueOf(color));
++        return button;
++    }
++
++    private void refreshStatus() {
++        if (gameFile != null && gameFile.isFile() && gameFile.length() > 0) {
++            status.setText("HUNTER STATUS  •  GAME READY\n\n" + gameFile.getName()
++                    + "\n" + formatBytes(gameFile.length())
++                    + "\n\nImported into private app storage. You can launch without selecting it again.");
++            launchButton.setEnabled(true);
++            launchButton.setAlpha(1f);
++            importButton.setText("CHANGE GAME  •  IMPORT AGAIN");
++        } else {
++            gameFile = null;
++            status.setText("FIRST-TIME SETUP REQUIRED\n\n1. Tap IMPORT GAME\n2. Choose your own MH4U .3ds file\n"
++                    + "3. Wait for import to finish\n\nThe app remembers the imported file.");
++            launchButton.setEnabled(false);
++            launchButton.setAlpha(0.55f);
++            importButton.setText("SETUP  •  IMPORT GAME");
++        }
++    }
++
++    private void chooseGame() {
++        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
++        pick.addCategory(Intent.CATEGORY_OPENABLE);
++        pick.setType("*/*");
++        startActivityForResult(pick, REQUEST_GAME_FILE);
++    }
++
 +    @Override
-+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
++    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 +        super.onActivityResult(requestCode, resultCode, data);
 +        if (requestCode != REQUEST_GAME_FILE || resultCode != RESULT_OK || data == null) return;
-+        android.net.Uri uri = data.getData();
++        Uri uri = data.getData();
 +        if (uri == null) return;
-+        Intent launch = new Intent(Intent.ACTION_VIEW);
-+        launch.setDataAndType(uri, "application/octet-stream");
-+        launch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-+        startActivity(launch);
++        importGame(uri);
++    }
++
++    private void importGame(Uri uri) {
++        final String displayName = queryDisplayName(uri);
++        final String safeName = sanitizeName(displayName.isEmpty() ? "MH4U.3ds" : displayName);
++        importButton.setEnabled(false);
++        launchButton.setEnabled(false);
++        progress.setVisibility(View.VISIBLE);
++        progress.setIndeterminate(true);
++        status.setText("IMPORTING GAME\n\n" + safeName + "\nPlease keep the app open.");
++
++        new Thread(() -> {
++            File games = new File(getFilesDir(), "games");
++            File temp = new File(games, safeName + ".importing");
++            File target = new File(games, safeName);
++            boolean ok = false;
++            String error = "";
++            try (InputStream input = getContentResolver().openInputStream(uri);
++                 OutputStream output = new FileOutputStream(temp)) {
++                if (input == null) throw new java.io.IOException("Cannot open selected file.");
++                byte[] buffer = new byte[1024 * 1024];
++                int count;
++                while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
++                output.flush();
++                if (temp.length() == 0) throw new java.io.IOException("Selected file is empty.");
++                if (target.exists() && !target.delete()) throw new java.io.IOException("Cannot replace old import.");
++                if (!temp.renameTo(target)) throw new java.io.IOException("Cannot finalize imported file.");
++                ok = true;
++            } catch (Exception e) {
++                error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
++                temp.delete();
++            }
++            final boolean imported = ok;
++            final String message = error;
++            runOnUiThread(() -> {
++                progress.setVisibility(View.GONE);
++                importButton.setEnabled(true);
++                if (imported) {
++                    gameFile = target;
++                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_GAME, target.getAbsolutePath()).apply();
++                    refreshStatus();
++                    Toast.makeText(this, "Game imported and saved.", Toast.LENGTH_LONG).show();
++                } else {
++                    refreshStatus();
++                    status.setText("IMPORT FAILED\n\n" + message + "\nPlease check free storage and try again.");
++                    Toast.makeText(this, "Import failed: " + message, Toast.LENGTH_LONG).show();
++                }
++            });
++        }, "MH4U-Game-Import").start();
++    }
++
++    private String queryDisplayName(Uri uri) {
++        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
++            if (cursor != null && cursor.moveToFirst()) {
++                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
++                if (index >= 0) return cursor.getString(index);
++            }
++        } catch (Exception ignored) { }
++        return "MH4U.3ds";
++    }
++
++    private String sanitizeName(String name) {
++        String safe = name.replaceAll("[^A-Za-z0-9._-]", "_");
++        if (safe.length() > 100) safe = safe.substring(safe.length() - 100);
++        if (!safe.toLowerCase(java.util.Locale.ROOT).endsWith(".3ds")
++                && !safe.toLowerCase(java.util.Locale.ROOT).endsWith(".cci")
++                && !safe.toLowerCase(java.util.Locale.ROOT).endsWith(".cxi")) safe += ".3ds";
++        return safe;
++    }
++
++    private String formatBytes(long bytes) {
++        return String.format(java.util.Locale.US, "%.2f GB", bytes / (1024.0 * 1024 * 1024));
++    }
++
++    private void launchGame() {
++        if (gameFile == null || !gameFile.isFile() || gameFile.length() == 0) {
++            gameFile = null;
++            refreshStatus();
++            Toast.makeText(this, "Import the game file first.", Toast.LENGTH_SHORT).show();
++            return;
++        }
++        try {
++            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".mh4u.files", gameFile);
++            Intent launch = new Intent(Intent.ACTION_VIEW);
++            launch.setDataAndType(uri, "application/octet-stream");
++            launch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
++            startActivity(launch);
++        } catch (Exception e) {
++            Toast.makeText(this, "Could not launch game: " + e.getMessage(), Toast.LENGTH_LONG).show();
++        }
 +    }
 +}
