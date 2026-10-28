@@ -58,8 +58,8 @@ jobs:
       - name: Checkout selected Azahar fork
         uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.azahar_repo }}
-          ref: ${{ inputs.azahar_ref }}
+          repository: ${{ inputs.azahar_repo || 'klark231/AzaharPlus' }}
+          ref: ${{ inputs.azahar_ref || 'locale-translations' }}
           token: ${{ secrets.AZAHAR_TOKEN || github.token }}
           submodules: recursive
           path: azahar
