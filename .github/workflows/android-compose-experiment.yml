@@ -1,0 +1,121 @@
+name: Android standalone Compose experiment
+
+# Experimental migration based on klark231/MH4U-Android.
+# Keep android.yml untouched as the fallback. This workflow never packages a ROM
+# or a generated game-code library; those must come from the player's own dump.
+on:
+  workflow_dispatch:
+    inputs:
+      azahar_repo:
+        description: "Azahar fork to build against"
+        required: true
+        default: "klark231/AzaharPlus"
+      azahar_ref:
+        description: "Branch, tag, or commit of that fork"
+        required: true
+        default: "locale-translations"
+
+permissions:
+  contents: read
+
+jobs:
+  standalone-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout our MH4U port
+        uses: actions/checkout@v4
+        with:
+          path: mh4u
+
+      - name: Checkout Android reference source
+        uses: actions/checkout@v4
+        with:
+          repository: klark231/MH4U-Android
+          ref: main
+          path: reference
+
+      - name: Stage Compose/JNI app source (without replacing our port)
+        run: |
+          set -euo pipefail
+          test -f reference/port/android/README.md
+          test -f reference/port/android/jni/native.cpp
+          test -f reference/port/azahar/azahar-android.patch
+          mkdir -p mh4u/port
+          rm -rf mh4u/port/android
+          cp -a reference/port/android mh4u/port/android
+          echo "Reference source staged:"
+          find mh4u/port/android -maxdepth 3 -type f | sort | head -100
+          echo "Our game backend remains:"
+          test -f mh4u/port/src/arm_recomp.cpp || test -f mh4u/port/src/arm_recomp.h
+          test -f mh4u/port/CMakeLists.txt
+
+      - name: Checkout selected Azahar fork
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.azahar_repo }}
+          ref: ${{ inputs.azahar_ref }}
+          token: ${{ secrets.AZAHAR_TOKEN || github.token }}
+          submodules: recursive
+          path: azahar
+
+      - name: Apply reference Android core patch
+        working-directory: azahar
+        run: |
+          set -euo pipefail
+          PATCH="../reference/port/azahar/azahar-android.patch"
+          if git apply --check "$PATCH"; then
+            git apply "$PATCH"
+          elif git apply --reverse --check "$PATCH"; then
+            echo "Reference patch already present; skipping."
+          else
+            echo "::error::Android reference patch does not apply cleanly to the selected Azahar ref."
+            git apply --check "$PATCH"
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK components
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
+          test -n "$SDKM"
+          yes | "$SDKM" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SDKM" --sdk_root="$SDK" "ndk;27.3.13750724" "cmake;3.31.6" "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+          validate-wrappers: false
+
+      - name: Build standalone APK
+        working-directory: mh4u/port/android
+        env:
+          MH4U_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          gradle assembleRelease --no-daemon -Pazahar.dir=${{ github.workspace }}/azahar
+
+      - name: Verify APK and report contents
+        run: |
+          set -euo pipefail
+          APK=$(find mh4u/port/android/app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
+          test -n "$APK"
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          "$SDK/build-tools/35.0.0/apksigner" verify "$APK"
+          echo "APK=$APK"
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/libmh4u-android.so|classes.dex'
+          if unzip -l "$APK" | grep -Ei '\.(3ds|cia|cci|cxi)$'; then
+            echo "::error::A game dump must never be bundled in the APK."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mh4u-android-standalone-experiment
+          path: mh4u/port/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
