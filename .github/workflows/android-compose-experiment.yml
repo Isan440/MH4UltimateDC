@@ -64,11 +64,17 @@ jobs:
           submodules: recursive
           path: azahar
 
-      - name: Apply reference Android core patch
-        working-directory: azahar
+      - name: Diagnose Azahar checkout and apply reference patch
         run: |
           set -euo pipefail
-          PATCH="../reference/port/azahar/azahar-android.patch"
+          cd "$GITHUB_WORKSPACE/azahar"
+          echo "Azahar checkout root: $PWD"
+          git remote -v
+          git log -1 --oneline
+          git branch --show-current
+          ls -la | head -40
+          test -f src/CMakeLists.txt || { echo "::error::Selected Azahar checkout has no src/CMakeLists.txt"; exit 1; }
+          PATCH="$GITHUB_WORKSPACE/reference/port/azahar/azahar-android.patch"
           if git apply --check "$PATCH"; then
             git apply "$PATCH"
           elif git apply --reverse --check "$PATCH"; then
