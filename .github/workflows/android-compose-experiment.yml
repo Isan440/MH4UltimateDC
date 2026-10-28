@@ -55,6 +55,69 @@ jobs:
           test -f mh4u/port/src/arm_recomp.cpp || test -f mh4u/port/src/arm_recomp.h
           test -f mh4u/port/CMakeLists.txt
 
+      - name: Add visible startup diagnostics for Java and JNI initialization failures
+        working-directory: mh4u/port/android
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          app = Path('app/src/main/java/org/mh4u/port/App.kt')
+          source = app.read_text()
+          expected = '''class App : Application() {
+              override fun onCreate() {
+                  super.onCreate()
+                  Storage.init(this)
+                  Native.init(Storage.privateDir.absolutePath)
+                  MH4UInput.init(Storage.root)
+              }
+          }
+          '''
+          replacement = '''class App : Application() {
+              companion object {
+                  @Volatile var startupError: String? = null
+              }
+
+              override fun onCreate() {
+                  super.onCreate()
+                  try {
+                      Storage.init(this)
+                      Native.init(Storage.privateDir.absolutePath)
+                      MH4UInput.init(Storage.root)
+                  } catch (t: Throwable) {
+                      startupError = t.javaClass.name + ": " + (t.message ?: "no message")
+                      try {
+                          openFileOutput("mh4u-startup-error.txt", MODE_PRIVATE).use {
+                              it.write((startupError + "\\n" + android.util.Log.getStackTraceString(t)).toByteArray())
+                          }
+                      } catch (_: Throwable) { }
+                  }
+              }
+          }
+          '''
+          if expected not in source:
+              raise SystemExit('Expected App.kt startup block not found; refusing to patch blindly')
+          app.write_text(source.replace(expected, replacement, 1))
+
+          main = Path('app/src/main/java/org/mh4u/port/MainActivity.kt')
+          source = main.read_text()
+          layout_anchor = '''        Column(Modifier.fillMaxSize().background(Mh4uColors.WindowBg).statusBarsPadding().navigationBarsPadding()) {
+          '''
+          addition = '''        Column(Modifier.fillMaxSize().background(Mh4uColors.WindowBg).statusBarsPadding().navigationBarsPadding()) {
+              App.startupError?.let { error ->
+                  Text(
+                      "STARTUP INITIALIZATION FAILED\\n$error\\n\\nThe launcher is in diagnostic mode. Share this message to help fix the crash.",
+                      color = MaterialTheme.colorScheme.error,
+                      modifier = Modifier.fillMaxWidth().padding(12.dp)
+                  )
+              }
+          '''
+          if layout_anchor not in source:
+              raise SystemExit('Expected MainActivity launcher layout not found; refusing to patch blindly')
+          main.write_text(source.replace(layout_anchor, addition, 1))
+          PY
+          echo 'Startup diagnostics patch applied:'
+          grep -n 'startupError\|STARTUP INITIALIZATION FAILED' app/src/main/java/org/mh4u/port/App.kt app/src/main/java/org/mh4u/port/MainActivity.kt
+
       - name: Checkout selected Azahar fork
         uses: actions/checkout@v4
         with:
