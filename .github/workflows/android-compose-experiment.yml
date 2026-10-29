@@ -51,6 +51,21 @@ jobs:
           cp -a reference/port/android mh4u/port/android
           # This Android frontend uses the port's input binding engine; stage its source files too.
           cp reference/port/src/input_map.h reference/port/src/input_map.cpp mh4u/port/src/
+          # The Android JNI target shares the PC app's portable LAN and speed-control modules.
+          # Add them to the copied reference CMake target; they are intentionally not part of the
+          # fallback workflow's native library.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("mh4u/port/android/jni/CMakeLists.txt")
+          s = p.read_text()
+          anchor = '    ${MH4U_PORT_DIR}/app/config.cpp\n'
+          additions = '    ${MH4U_PORT_DIR}/app/lan.cpp\n    ${MH4U_PORT_DIR}/app/speed.cpp\n'
+          if additions not in s:
+              if anchor not in s:
+                  raise SystemExit("Could not find shared app source anchor in JNI CMakeLists.txt")
+              s = s.replace(anchor, additions + anchor, 1)
+          p.write_text(s)
+          PY
           # The patched Azahar CMake may resolve the JNI source tree under its build tree;
           # place the header beside JNI sources as a stable include fallback.
           cp reference/port/src/input_map.h mh4u/port/android/jni/input_map.h
