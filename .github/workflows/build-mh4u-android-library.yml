@@ -1,0 +1,119 @@
+name: Build MH4U Android game library
+
+on:
+  workflow_dispatch:
+    inputs:
+      dump_url:
+        description: "Temporary direct-download URL for YOUR decrypted USA v1.3.0 update CIA (use a private, expiring link)"
+        required: true
+        type: string
+      optimization:
+        description: "O0 is faster to compile; O1 may run faster but takes longer"
+        required: true
+        type: choice
+        options:
+          - O0
+          - O1
+        default: O0
+
+permissions:
+  contents: read
+
+jobs:
+  build-game-library:
+    # The generated library contains recompiled game code. Never expose it as an artifact
+    # from a public repository, where other users may be able to download workflow artifacts.
+    if: github.event.repository.private == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Mask supplied download URL
+        env:
+          DUMP_URL: ${{ inputs.dump_url }}
+        run: |
+          echo "::add-mask::$DUMP_URL"
+          test -n "$DUMP_URL"
+
+      - name: Install Python and Android NDK
+        run: |
+          set -euo pipefail
+          python3 --version
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
+          test -n "$SDKM"
+          yes | "$SDKM" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SDKM" --sdk_root="$SDK" "ndk;27.3.13750724"
+          echo "ANDROID_NDK_HOME=$SDK/ndk/27.3.13750724" >> "$GITHUB_ENV"
+
+      - name: Download own update dump privately
+        env:
+          DUMP_URL: ${{ inputs.dump_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mh4u-private"
+          chmod 700 "$RUNNER_TEMP/mh4u-private"
+          # Do not print the URL or response headers; signed URLs may contain credentials.
+          curl --fail --location --silent --show-error --retry 2 \
+            "$DUMP_URL" --output "$RUNNER_TEMP/mh4u-private/update.cia"
+          test -s "$RUNNER_TEMP/mh4u-private/update.cia"
+          # Reject HTML/login pages masquerading as downloads.
+          file "$RUNNER_TEMP/mh4u-private/update.cia"
+          echo "UPDATE_CIA=$RUNNER_TEMP/mh4u-private/update.cia" >> "$GITHUB_ENV"
+
+      - name: Configure Android ARM64 compiler wrapper
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/android-cc"
+          cat > "$RUNNER_TEMP/android-cc/aarch64-linux-android-clang" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang" "$@"
+          EOF
+          chmod 700 "$RUNNER_TEMP/android-cc/aarch64-linux-android-clang"
+          echo "ANDROID_CC=$RUNNER_TEMP/android-cc/aarch64-linux-android-clang" >> "$GITHUB_ENV"
+
+      - name: Recompile and link Android ARM64 game library
+        env:
+          OPT: ${{ inputs.optimization }}
+        run: |
+          set -euo pipefail
+          python3 tools/build_game.py \
+            --dump "$UPDATE_CIA" \
+            --out "$RUNNER_TEMP/mh4u-private/build" \
+            --cc "$ANDROID_CC" \
+            --lib-ext so \
+            --opt "$OPT" \
+            -j 2
+          LIB="$RUNNER_TEMP/mh4u-private/build/recomp/0004000000126300.so"
+          test -s "$LIB"
+          file "$LIB"
+          readelf -h "$LIB" | grep -E 'Class:|Machine:'
+          readelf -h "$LIB" | grep -q 'Class:.*ELF64'
+          readelf -h "$LIB" | grep -q 'Machine:.*AArch64'
+          mkdir -p output
+          cp "$LIB" output/0004000000126300.so
+          sha256sum output/0004000000126300.so > output/SHA256SUMS.txt
+
+      - name: Remove private dump and intermediate generated game code
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/mh4u-private" || true
+
+      - name: Upload private game library artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mh4u-android-arm64-recompiled-library
+          path: output/*
+          if-no-files-found: error
+          retention-days: 1
+
+  reject-public-repository:
+    if: github.event.repository.private != true
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "::error::This workflow produces a library containing game-derived code. Make this repository private before running it."
+          exit 1
