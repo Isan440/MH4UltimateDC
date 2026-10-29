@@ -51,6 +51,9 @@ jobs:
           cp -a reference/port/android mh4u/port/android
           # This Android frontend uses the port's input binding engine; stage its source files too.
           cp reference/port/src/input_map.h reference/port/src/input_map.cpp mh4u/port/src/
+          # The patched Azahar CMake may resolve the JNI source tree under its build tree;
+          # place the header beside JNI sources as a stable include fallback.
+          cp reference/port/src/input_map.h mh4u/port/android/jni/input_map.h
           # Only the experimental Compose build should enable the extra JNI target.
           python3 - <<'PY'
           from pathlib import Path
