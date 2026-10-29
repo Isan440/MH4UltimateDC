@@ -49,6 +49,20 @@ jobs:
           mkdir -p mh4u/port
           rm -rf mh4u/port/android
           cp -a reference/port/android mh4u/port/android
+          # This Android frontend uses the port's input binding engine; stage its source files too.
+          cp reference/port/src/input_map.h reference/port/src/input_map.cpp mh4u/port/src/
+          # Only the experimental Compose build should enable the extra JNI target.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("mh4u/port/android/app/build.gradle.kts")
+          s = p.read_text()
+          anchor = '"-DMH4U_PORT_DIR=$portDir",'
+          if anchor not in s:
+              raise SystemExit("Could not find MH4U_PORT_DIR CMake argument")
+          if '"-DMH4U_ANDROID_STANDALONE=ON"' not in s:
+              s = s.replace(anchor, anchor + '\n                    "-DMH4U_ANDROID_STANDALONE=ON",', 1)
+          p.write_text(s)
+          PY
           echo "Reference source staged:"
           find mh4u/port/android -maxdepth 3 -type f | sort | head -100
           echo "Our game backend remains:"
