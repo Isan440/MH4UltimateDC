@@ -1,0 +1,139 @@
+name: Build private MH4U Android code library
+
+# Builds a per-user native library from a dump supplied by the repository owner.
+# Never upload a game dump to the repository or commit generated game code.
+on:
+  workflow_dispatch:
+    inputs:
+      optimization:
+        description: "Compiler optimization (O0 is safer for the first test; O1 is faster)"
+        type: choice
+        options: [O0, O1]
+        default: O0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-code-library:
+    if: github.repository == 'Isan440/MH4UltimateDC'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout port source
+        uses: actions/checkout@v4
+        with:
+          ref: android-native-port
+
+      - name: Require private update URL
+        env:
+          MH4U_UPDATE_URL: ${{ secrets.MH4U_UPDATE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MH4U_UPDATE_URL:-}" ]; then
+            echo "::error::Set the repository Actions secret MH4U_UPDATE_URL to a temporary/private URL for your own decrypted v1.3.0 update CIA."
+            exit 1
+          fi
+
+      - name: Download private update into runner only
+        env:
+          MH4U_UPDATE_URL: ${{ secrets.MH4U_UPDATE_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mh4u-private"
+          # Do not echo the URL: it may contain a signed access token.
+          curl --fail --location --retry 3 --silent --show-error \
+            "$MH4U_UPDATE_URL" -o "$RUNNER_TEMP/mh4u-private/update.cia"
+          test -s "$RUNNER_TEMP/mh4u-private/update.cia"
+          # Reject unexpectedly small or HTML error responses before starting the recompiler.
+          size=$(stat -c '%s' "$RUNNER_TEMP/mh4u-private/update.cia")
+          if [ "$size" -lt 1048576 ]; then
+            echo "::error::Downloaded update is unexpectedly small; check MH4U_UPDATE_URL."
+            exit 1
+          fi
+          file "$RUNNER_TEMP/mh4u-private/update.cia"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies and native build tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang lld file
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+
+      - name: Install Android NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK toolchain
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "ndk;27.3.13750724"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+
+      - name: Create Android ARM64 clang wrapper
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/aarch64-android-clang" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          NDK="${ANDROID_NDK_HOME:?ANDROID_NDK_HOME is not set}"
+          exec "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" \
+            --target=aarch64-linux-android24 \
+            --sysroot="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot" "$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/aarch64-android-clang"
+
+      - name: Recompile the player's v1.3.0 update for Android ARM64
+        env:
+          OPTIMIZATION: ${{ inputs.optimization }}
+        run: |
+          set -euo pipefail
+          python tools/build_game.py \
+            --dump "$RUNNER_TEMP/mh4u-private/update.cia" \
+            --out "$RUNNER_TEMP/mh4u-build" \
+            --opt "$OPTIMIZATION" \
+            --jobs 2 \
+            --lib-ext so \
+            --cc "$RUNNER_TEMP/aarch64-android-clang"
+          echo "Candidate libraries:"
+          find "$RUNNER_TEMP/mh4u-build" -type f -name '*.so' -print
+          LIB=$(find "$RUNNER_TEMP/mh4u-build" -type f -name '0004000000126300.so' -print -quit)
+          if [ -z "$LIB" ]; then
+            echo "::error::Expected 0004000000126300.so not produced; inspect build logs and program ID."
+            exit 1
+          fi
+          file "$LIB"
+          readelf -h "$LIB" | grep -E 'Class:|Machine:'
+          readelf -h "$LIB" | grep -q 'Class:.*ELF64'
+          readelf -h "$LIB" | grep -q 'Machine:.*AArch64'
+          mkdir -p "$RUNNER_TEMP/output"
+          cp "$LIB" "$RUNNER_TEMP/output/0004000000126300.so"
+          sha256sum "$RUNNER_TEMP/output/0004000000126300.so" > "$RUNNER_TEMP/output/SHA256SUMS.txt"
+          printf '%s\n' "MH4U USA v1.3.0 Android ARM64 code library" > "$RUNNER_TEMP/output/README.txt"
+
+      - name: Upload private build artifact (short retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mh4u-code-library-android-arm64
+          path: |
+            ${{ runner.temp }}/output/0004000000126300.so
+            ${{ runner.temp }}/output/SHA256SUMS.txt
+            ${{ runner.temp }}/output/README.txt
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Remove private game dump and intermediate generated code
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/mh4u-private" "$RUNNER_TEMP/mh4u-build" "$RUNNER_TEMP/output"
