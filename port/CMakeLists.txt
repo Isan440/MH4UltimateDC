@@ -25,11 +25,13 @@ add_library(mh4u_backend STATIC
     src/frontend.h
     src/hooks.cpp
     src/hooks.h
-    src/input_map.cpp
-    src/input_map.h
     src/netsync.cpp
     src/netsync.h
 )
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/src/input_map.cpp")
+    target_sources(mh4u_backend PRIVATE src/input_map.cpp src/input_map.h)
+endif()
+
 target_include_directories(mh4u_backend PUBLIC src PRIVATE "${MH4U_RUNTIME_DIR}")
 target_link_libraries(mh4u_backend PUBLIC citra_core citra_common network)
 
