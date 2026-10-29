@@ -36,7 +36,8 @@ if(ANDROID)
     target_sources(mh4u_backend PRIVATE src/fiber_arm64.S)
 endif()
 
-if(ANDROID)
+option(MH4U_ANDROID_STANDALONE "Build the standalone Kotlin/JNI frontend" OFF)
+if(ANDROID AND MH4U_ANDROID_STANDALONE)
     # Build the standalone Kotlin/JNI frontend as an actual CMake target for AGP packaging.
     add_subdirectory(android/jni)
 endif()
