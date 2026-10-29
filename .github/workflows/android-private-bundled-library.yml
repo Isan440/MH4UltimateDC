@@ -1,0 +1,157 @@
+name: Android APK with private MH4U code library
+
+on:
+  workflow_dispatch:
+    inputs:
+      dump_url:
+        description: "Temporary direct-download URL for YOUR decrypted USA v1.3.0 update CIA"
+        required: true
+        type: string
+      optimization:
+        description: "O0 compiles faster; O1 may run faster"
+        required: true
+        type: choice
+        options: [O0, O1]
+        default: O0
+
+permissions:
+  contents: read
+
+jobs:
+  build-private-apk:
+    if: github.event.repository.private == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout this Android port
+        uses: actions/checkout@v4
+        with:
+          ref: android-native-port
+          path: mh4u
+
+      - name: Checkout recompiler source
+        uses: actions/checkout@v4
+        with:
+          repository: klark231/MH4U-Android
+          ref: main
+          path: source
+
+      - name: Download own update dump to temporary runner storage
+        env:
+          DUMP_URL: ${{ inputs.dump_url }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$DUMP_URL"
+          mkdir -p "$RUNNER_TEMP/mh4u-private"
+          chmod 700 "$RUNNER_TEMP/mh4u-private"
+          curl --fail --location --retry 2 --silent --show-error "$DUMP_URL" \
+            --output "$RUNNER_TEMP/mh4u-private/update.cia"
+          test -s "$RUNNER_TEMP/mh4u-private/update.cia"
+          if [ "$(stat -c '%s' "$RUNNER_TEMP/mh4u-private/update.cia")" -lt 1048576 ]; then
+            echo "::error::Downloaded file is too small; check the direct-download URL."
+            exit 1
+          fi
+          echo "UPDATE_CIA=$RUNNER_TEMP/mh4u-private/update.cia" >> "$GITHUB_ENV"
+
+      - name: Install recompiler dependencies and Android NDK
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r source/requirements.txt
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
+          test -n "$SDKM"
+          yes | "$SDKM" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SDKM" --sdk_root="$SDK" "ndk;27.3.13750724" "cmake;3.30.3" "platforms;android-36" "build-tools;36.0.0"
+          echo "ANDROID_NDK_HOME=$SDK/ndk/27.3.13750724" >> "$GITHUB_ENV"
+
+      - name: Compile private game code for Android ARM64
+        working-directory: source
+        env:
+          OPT: ${{ inputs.optimization }}
+        run: |
+          set -euo pipefail
+          CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          python3 tools/build_game.py \
+            --dump "$UPDATE_CIA" \
+            --out "$RUNNER_TEMP/mh4u-private/build" \
+            --cc "$CC" \
+            --lib-ext so \
+            --opt "$OPT" \
+            -j 2
+          LIB="$RUNNER_TEMP/mh4u-private/build/recomp/0004000000126300.so"
+          test -s "$LIB"
+          readelf -h "$LIB" | grep -q 'Class:.*ELF64'
+          readelf -h "$LIB" | grep -q 'Machine:.*AArch64'
+          mkdir -p "$RUNNER_TEMP/private-jni/arm64-v8a"
+          cp "$LIB" "$RUNNER_TEMP/private-jni/arm64-v8a/libmh4u_code.so"
+
+      - name: Checkout pinned Azahar and apply port patches
+        run: |
+          set -euo pipefail
+          git clone https://github.com/azahar-emu/azahar.git azahar
+          cd azahar
+          git checkout "$(cat ../mh4u/port/azahar/COMMIT)"
+          git submodule update --init --recursive --depth 1
+          git apply ../mh4u/port/azahar/azahar.patch
+          git apply --recount ../mh4u/port/azahar/mh4u-home.patch
+
+      - name: Install Android build tools
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Prepare signing and build APK with bundled library
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          set -euo pipefail
+          (yes || true) | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "cmake;3.30.3" "ndk;27.3.13750724" "platforms;android-36" "build-tools;36.0.0" >/dev/null
+          mkdir -p azahar/src/android/app/src/main/jniLibs/arm64-v8a
+          cp "$RUNNER_TEMP/private-jni/arm64-v8a/libmh4u_code.so" \
+            azahar/src/android/app/src/main/jniLibs/arm64-v8a/libmh4u_code.so
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then
+            export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/mh4u.jks"
+            base64 --decode <<< "$ANDROID_KEYSTORE_B64" > "$ANDROID_KEYSTORE_FILE"
+          else
+            echo "::warning::No signing secrets; APK uses this runner's debug key."
+          fi
+          cd azahar/src/android
+          chmod +x ./gradlew
+          ./gradlew assembleVanillaRelease --no-daemon --console=plain \
+            -Pmh4uPortDir="$GITHUB_WORKSPACE/mh4u/port" \
+            -Pmh4uApplicationId=io.github.compalarios18.mh4u \
+            -Pmh4uAppLabel=MH4U
+          cd "$GITHUB_WORKSPACE"
+          rm -f "${ANDROID_KEYSTORE_FILE:-/nonexistent}"
+          APK=$(find azahar/src/android/app/build/outputs/apk/vanilla/release -maxdepth 1 -name '*.apk' -print -quit)
+          test -n "$APK"
+          unzip -Z1 "$APK" | grep -x "lib/arm64-v8a/libcitra-android.so" >/dev/null
+          unzip -Z1 "$APK" | grep -x "lib/arm64-v8a/libmh4u_code.so" >/dev/null
+          mkdir -p artifacts
+          cp "$APK" artifacts/mh4u-port-android-private.apk
+          sha256sum artifacts/mh4u-port-android-private.apk > artifacts/SHA256SUMS.txt
+
+      - name: Upload private APK (1-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mh4u-port-android-private-apk
+          path: artifacts/*
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Remove dump and generated game code
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/mh4u-private" "$RUNNER_TEMP/private-jni" artifacts
+
+  reject-public-repository:
+    if: github.event.repository.private != true
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "::error::This workflow generates and packages game-derived code. Make the repository private before running it."
+          exit 1
