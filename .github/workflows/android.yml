@@ -54,9 +54,9 @@ jobs:
         run: |
           NDK_BIN="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
           mkdir -p mh4u/port/android-builder-probe/build
-          "$NDK_BIN/aarch64-linux-android29-clang" \\
-            -O2 -fPIE -pie -Wl,-z,relro,-z,now \\
-            mh4u/port/android-builder-probe/builder_probe.c \\
+          "$NDK_BIN/aarch64-linux-android29-clang" \
+            -O2 -fPIE -pie -Wl,-z,relro,-z,now \
+            mh4u/port/android-builder-probe/builder_probe.c \
             -o mh4u/port/android-builder-probe/build/libmh4u_builder_probe.so
           chmod 755 mh4u/port/android-builder-probe/build/libmh4u_builder_probe.so
           "$NDK_BIN/llvm-readelf" -h mh4u/port/android-builder-probe/build/libmh4u_builder_probe.so | tee "$RUNNER_TEMP/probe-elf-header.txt"
