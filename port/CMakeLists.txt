@@ -31,6 +31,12 @@ add_library(mh4u_backend STATIC
 target_include_directories(mh4u_backend PUBLIC src PRIVATE "${MH4U_RUNTIME_DIR}")
 target_link_libraries(mh4u_backend PUBLIC citra_core citra_common network)
 
+# The standalone Kotlin/Compose Android app needs its own JNI bridge. Without this,
+# Gradle configures Azahar's CMake project but never creates libmh4u-android.so.
+if(ANDROID)
+    add_subdirectory(android/jni)
+endif()
+
 if(ANDROID)
     # bionic has no ucontext, so Android switches fibers with this AArch64 routine instead.
     target_sources(mh4u_backend PRIVATE src/fiber_arm64.S)
