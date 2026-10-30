@@ -14,9 +14,12 @@ add_library(mh4u-android SHARED
     native.cpp
     pad_device.cpp
     pad_device.h
+    input_bindings.cpp
     # the PC app's SDL-free parts, shared: the app's settings, rooms and invite codes
     ${MH4U_PORT_DIR}/app/config.cpp
     ${MH4U_PORT_DIR}/app/invite.cpp
+    ${MH4U_PORT_DIR}/app/lan.cpp
+    ${MH4U_PORT_DIR}/app/speed.cpp
     ${MH4U_PORT_DIR}/app/multiplayer.cpp
     ${MH4U_PORT_DIR}/app/launcher/lobby.cpp
 )
