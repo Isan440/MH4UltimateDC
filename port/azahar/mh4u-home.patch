@@ -388,7 +388,7 @@ index 0000000..1111111
 +        }, "MH4U-Builder-Probe").start();
 +    }
 +
-
++
 +    private void launchGame() {
 +        if (gameFile == null || !gameFile.isFile() || gameFile.length() == 0) {
 +            gameFile = null;
