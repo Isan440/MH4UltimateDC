@@ -432,7 +432,9 @@ void Apply(const Config& c) {
     } else if (c.screens == "side") {
         v.layout_option = Settings::LayoutOption::SideScreen;
     } else if (c.screens == "windows") {
-        v.layout_option = Settings::LayoutOption::SeparateWindows;
+        // Azahar excludes SeparateWindows from Android builds.
+        // Fall back to the standard layout on Android.
+        v.layout_option = Settings::LayoutOption::Default;
     } else {
         // the custom layout is the port's overlay when mh4u.ini's touch_overlay is on
         v.layout_option = Settings::LayoutOption::CustomLayout;
