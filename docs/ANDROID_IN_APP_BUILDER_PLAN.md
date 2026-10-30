@@ -65,3 +65,55 @@ Let the Android app prepare a user's own supported, decrypted MH4U update dump l
 - Do not include a ROM, extracted `code.bin`, generated C sources, or a game-derived `.so` in public APKs or public CI artifacts.
 - Do not depend on Termux, a PC, an external compiler app, or remote upload of the user's dump.
 - A green APK build is not proof that the in-app compiler works; physical-device validation is required.
+
+## Audit update — 2026-10-30
+
+### Confirmed MH4U runtime dependencies
+
+The production import path from `tools/build_game.py` through `recompile.py`,
+`recomp.analysis`, `recomp.emit`, `recomp.build`, NCCH extraction, BLZ
+decompression and code-mod handling uses the Python standard library and this
+repository's own Python modules. The production decoder is the project's own
+ARM/Thumb implementation (`tools/recomp/arm.py`, `thumb.py`, `insn.py`),
+not Capstone or Unicorn. The current `requirements.txt` includes Capstone,
+Unicorn and pyelftools for development/test tooling; they are not direct
+requirements of the dump-to-library runtime import path inspected so far.
+This makes an embedded Python runtime substantially simpler: no native Python
+wheels are currently required for the core build path.
+
+### First implementation commit
+
+Added `tools/android_builder/entry.py`, a thin embedded-Python API that:
+- accepts only local filesystem paths supplied by the Android service;
+- requires a present, executable Android-host compiler;
+- calls the existing `build_game.main()` with `--android` and the supplied compiler;
+- defaults to one worker and `O0`, limits the worker count to 1–4, and allows
+  only `O0` or `O1`;
+- uses `--no-mods` unless a specific local mod directory is provided;
+- checks that the expected MH4U title library exists and passes the existing
+  Android ELF/import/alignment validator.
+
+Added unit tests for argument construction and bounds in
+`tests/test_android_builder_entry.py`. The CI workflow now also runs on this
+feature branch. These changes do not yet provide an Android-host compiler,
+service, UI, or a working on-device build.
+
+### Toolchain provenance caveat
+
+Ocarina's Android setup code expects `libretuned_clang.so` and
+`libretuned_lld.so` under Android's `nativeLibraryDir`. However, the public
+`stage_android_host.py` and `android-native-host.yml` inspected here stage
+the neutral game/runtime libraries and `libc++_shared.so`; they do not create
+those two compiler executables. Therefore we must not assume that the visible
+Ocarina host workflow itself supplies the compiler. The exact provenance,
+build recipe, license, and executable packaging path for those compiler
+artifacts still need to be established before adapting or redistributing them.
+
+### Immediate next gate
+
+Before implementing the Android service, build a tiny ARM64 Android-host
+executable, package it under `jniLibs/arm64-v8a`, and run it from
+`ApplicationInfo.nativeLibraryDir` in a physical-device smoke test. This
+isolates Android's executable/packaging behavior from the much larger Clang
+toolchain. It is only an execution probe, not a compiler and not proof that
+MH4U can yet be built on-device.
