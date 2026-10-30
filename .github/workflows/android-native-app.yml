@@ -80,5 +80,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: mh4u-android-release
-          path: artifacts/mh4u-android-debug.apk
+          path: artifacts/mh4u-android-release.apk
           retention-days: 14
