@@ -30,7 +30,6 @@ jobs:
           cd "$AZAHAR_DIR"
           git checkout "$(cat "$GITHUB_WORKSPACE/mh4u/port/azahar/COMMIT")"
           git submodule update --init --recursive --depth 1
-          # Apply the rebased Android patch directly to the exact pinned Azahar source.
           git apply --check "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
           git apply "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
 
@@ -42,8 +41,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-          # This workflow invokes the installed Gradle CLI, not any dependency wrapper.
-          # Azahar's SDL2 submodule includes a wrapper JAR absent from Gradle's checksum allowlist.
           validate-wrappers: false
 
       - name: Install Android SDK components
@@ -59,8 +56,13 @@ jobs:
         run: |
           apk="mh4u/port/android/app/build/outputs/apk/debug/app-debug.apk"
           test -f "$apk"
-          unzip -Z1 "$apk" | grep -Fx "lib/arm64-v8a/libmh4u-android.so"
-          if unzip -Z1 "$apk" | grep -Eq 'lib/[^/]+/libmh4u_code\\.so'; then
+          echo "Native libraries packaged in APK:"
+          unzip -Z1 "$apk" | grep '^lib/' || true
+          if ! unzip -Z1 "$apk" | grep -Fqx "lib/arm64-v8a/libmh4u-android.so"; then
+            echo "::error::Expected JNI library missing from APK"
+            exit 1
+          fi
+          if unzip -Z1 "$apk" | grep -Eq 'lib/[^/]+/libmh4u_code[.]so'; then
             echo "::error::Game code library must not be embedded in the APK"
             exit 1
           fi
