@@ -1,0 +1,73 @@
+name: MH4U standalone Android app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [integration/klark-android-port]
+    paths:
+      - "port/**"
+      - "docs/ANDROID_PORT_ADOPTION.md"
+      - ".github/workflows/android-native-app.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NDK_VERSION: "27.3.13750724"
+      AZAHAR_DIR: ${{ github.workspace }}/azahar
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mh4u
+
+      - name: Checkout pinned Azahar core
+        run: |
+          git clone https://github.com/azahar-emu/azahar.git "$AZAHAR_DIR"
+          cd "$AZAHAR_DIR"
+          git checkout "$(cat "$GITHUB_WORKSPACE/mh4u/port/azahar/COMMIT")"
+          git submodule update --init --recursive --depth 1
+          git apply --check "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
+          git apply "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Install Android SDK components
+        run: |
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \
+            "cmake;3.30.3" "ndk;$NDK_VERSION" >/dev/null
+
+      - name: Build standalone MH4U APK (ARM64)
+        working-directory: mh4u/port/android
+        run: |
+          gradle --no-daemon --console=plain assembleDebug \
+            -Pazahar.dir="$AZAHAR_DIR"
+
+      - name: Verify APK contents
+        run: |
+          apk="mh4u/port/android/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$apk"
+          unzip -Z1 "$apk" | grep -Fx "lib/arm64-v8a/libmh4u-android.so"
+          if unzip -Z1 "$apk" | grep -Eq 'lib/[^/]+/libmh4u_code\.so'; then
+            echo "::error::Game code library must not be embedded in the APK"
+            exit 1
+          fi
+          mkdir -p artifacts
+          cp "$apk" artifacts/mh4u-android-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mh4u-android-debug
+          path: artifacts/mh4u-android-debug.apk
+          retention-days: 14
