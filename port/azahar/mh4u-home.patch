@@ -183,11 +183,11 @@ index 0000000..1111111
 +        aboutParams.topMargin = dp(8);
 +        root.addView(about, aboutParams);
 +        Button builderProbe = makeButton("DEVELOPER  •  TEST ANDROID BUILDER", Color.rgb(38, 55, 48));
-        builderProbe.setOnClickListener(view -> runBuilderProbe());
-        LinearLayout.LayoutParams probeParams = matchWrap();
-        probeParams.topMargin = dp(8);
-        root.addView(builderProbe, probeParams);
-        setContentView(root);
++        builderProbe.setOnClickListener(view -> runBuilderProbe());
++        LinearLayout.LayoutParams probeParams = matchWrap();
++        probeParams.topMargin = dp(8);
++        root.addView(builderProbe, probeParams);
++        setContentView(root);
 +    }
 +
 +    private LinearLayout.LayoutParams matchWrap() {
@@ -349,44 +349,45 @@ index 0000000..1111111
 +    }
 +
 +    private void runBuilderProbe() {
-        File executable = new File(getApplicationInfo().nativeLibraryDir,
-                "libmh4u_builder_probe.so");
-        if (!executable.isFile() || !executable.canExecute()) {
-            new AlertDialog.Builder(this)
-                    .setTitle("ANDROID BUILDER PROBE")
-                    .setMessage("Probe executable is missing or not executable:\\n"
-                            + executable.getAbsolutePath())
-                    .setPositiveButton("OK", null)
-                    .show();
-            return;
-        }
-
-        new Thread(() -> {
-            StringBuilder output = new StringBuilder();
-            int exitCode = -1;
-            try {
-                Process process = new ProcessBuilder(executable.getAbsolutePath())
-                        .redirectErrorStream(true)
-                        .start();
-                try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(process.getInputStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) output.append(line).append('\\n');
-                }
-                exitCode = process.waitFor();
-            } catch (Exception e) {
-                output.append(e.getClass().getSimpleName()).append(": ")
-                        .append(e.getMessage());
-            }
-            final int resultCode = exitCode;
-            final String resultText = output.toString();
-            runOnUiThread(() -> new AlertDialog.Builder(this)
-                    .setTitle(resultCode == 0 ? "EXECUTION PROBE PASSED" : "EXECUTION PROBE FAILED")
-                    .setMessage("Exit code: " + resultCode + "\\n\\n" + resultText)
-                    .setPositiveButton("OK", null)
-                    .show());
-        }, "MH4U-Builder-Probe").start();
-    }
++        File executable = new File(getApplicationInfo().nativeLibraryDir,
++                "libmh4u_builder_probe.so");
++        if (!executable.isFile() || !executable.canExecute()) {
++            new AlertDialog.Builder(this)
++                    .setTitle("ANDROID BUILDER PROBE")
++                    .setMessage("Probe executable is missing or not executable:\n"
++                            + executable.getAbsolutePath())
++                    .setPositiveButton("OK", null)
++                    .show();
++            return;
++        }
++
++        new Thread(() -> {
++            StringBuilder output = new StringBuilder();
++            int exitCode = -1;
++            try {
++                Process process = new ProcessBuilder(executable.getAbsolutePath())
++                        .redirectErrorStream(true)
++                        .start();
++                try (java.io.BufferedReader reader = new java.io.BufferedReader(
++                        new java.io.InputStreamReader(process.getInputStream()))) {
++                    String line;
++                    while ((line = reader.readLine()) != null) output.append(line).append('\n');
++                }
++                exitCode = process.waitFor();
++            } catch (Exception e) {
++                output.append(e.getClass().getSimpleName()).append(": ")
++                        .append(e.getMessage());
++            }
++            final int resultCode = exitCode;
++            final String resultText = output.toString();
++            runOnUiThread(() -> new AlertDialog.Builder(this)
++                    .setTitle(resultCode == 0 ? "EXECUTION PROBE PASSED" : "EXECUTION PROBE FAILED")
++                    .setMessage("Exit code: " + resultCode + "\n\n" + resultText)
++                    .setPositiveButton("OK", null)
++                    .show());
++        }, "MH4U-Builder-Probe").start();
++    }
++
 
     private void launchGame() {
 +        if (gameFile == null || !gameFile.isFile() || gameFile.length() == 0) {
