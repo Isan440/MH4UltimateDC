@@ -64,7 +64,7 @@ jobs:
             echo "::error::Required ARM64 JNI library is missing"
             exit 1
           fi
-          readelf_bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          readelf_bin="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           unzip -p "$apk" lib/arm64-v8a/libmh4u-android.so > /tmp/libmh4u-android.so
           "$readelf_bin" -Ws /tmp/libmh4u-android.so | grep -Fq "JNI_OnLoad"
           "$readelf_bin" -Ws /tmp/libmh4u-android.so | grep -Fq "Java_org_mh4u_port_Native_run"
