@@ -42,17 +42,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+          # This workflow invokes the installed Gradle CLI, not any dependency wrapper.
+          # Azahar's SDL2 submodule includes a wrapper JAR absent from Gradle's checksum allowlist.
+          validate-wrappers: false
 
       - name: Install Android SDK components
         run: |
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \\
+            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \\
             "cmake;3.30.3" "ndk;$NDK_VERSION" >/dev/null
 
       - name: Build standalone MH4U APK (ARM64)
         working-directory: mh4u/port/android
         run: |
-          gradle --no-daemon --console=plain assembleDebug \
+          gradle --no-daemon --console=plain assembleDebug \\
             -Pazahar.dir="$AZAHAR_DIR"
 
       - name: Verify APK contents
@@ -60,7 +63,7 @@ jobs:
           apk="mh4u/port/android/app/build/outputs/apk/debug/app-debug.apk"
           test -f "$apk"
           unzip -Z1 "$apk" | grep -Fx "lib/arm64-v8a/libmh4u-android.so"
-          if unzip -Z1 "$apk" | grep -Eq 'lib/[^/]+/libmh4u_code\.so'; then
+          if unzip -Z1 "$apk" | grep -Eq 'lib/[^/]+/libmh4u_code\\.so'; then
             echo "::error::Game code library must not be embedded in the APK"
             exit 1
           fi
