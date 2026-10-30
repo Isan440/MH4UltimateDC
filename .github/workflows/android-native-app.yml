@@ -47,31 +47,38 @@ jobs:
         run: |
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmake;3.30.3" "ndk;$NDK_VERSION" >/dev/null
 
-      - name: Build standalone MH4U APK (ARM64)
+      - name: Build standalone MH4U APK (ARM64 Release)
         working-directory: mh4u/port/android
         run: |
-          gradle --no-daemon --console=plain assembleDebug -Pazahar.dir="$AZAHAR_DIR"
+          gradle --no-daemon --console=plain assembleRelease -Pazahar.dir="$AZAHAR_DIR"
 
       - name: Verify and stage APK for device testing
         run: |
-          apk="mh4u/port/android/app/build/outputs/apk/debug/app-debug.apk"
+          apk="mh4u/port/android/app/build/outputs/apk/release/app-release.apk"
           test -s "$apk"
           echo "APK size:"
           du -h "$apk"
           echo "Native libraries packaged in APK:"
           unzip -Z1 "$apk" | grep '^lib/' || true
           if ! unzip -Z1 "$apk" | grep -Fqx "lib/arm64-v8a/libmh4u-android.so"; then
-            echo "::warning::JNI library is not packaged yet; APK is provided for installation/UI smoke testing only."
+            echo "::error::Required ARM64 JNI library is missing"
+            exit 1
           fi
+          readelf_bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          unzip -p "$apk" lib/arm64-v8a/libmh4u-android.so > /tmp/libmh4u-android.so
+          "$readelf_bin" -Ws /tmp/libmh4u-android.so | grep -Fq "JNI_OnLoad"
+          "$readelf_bin" -Ws /tmp/libmh4u-android.so | grep -Fq "Java_org_mh4u_port_Native_run"
+          echo "Native library SHA256:"
+          sha256sum /tmp/libmh4u-android.so
           if unzip -Z1 "$apk" | grep -Eq 'lib/[^/]+/libmh4u_code[.]so'; then
             echo "::error::Game code library must not be embedded in the APK"
             exit 1
           fi
           mkdir -p artifacts
-          cp "$apk" artifacts/mh4u-android-debug.apk
+          cp "$apk" artifacts/mh4u-android-release.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mh4u-android-debug
+          name: mh4u-android-release
           path: artifacts/mh4u-android-debug.apk
           retention-days: 14
