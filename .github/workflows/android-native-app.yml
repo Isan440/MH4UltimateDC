@@ -30,8 +30,10 @@ jobs:
           cd "$AZAHAR_DIR"
           git checkout "$(cat "$GITHUB_WORKSPACE/mh4u/port/azahar/COMMIT")"
           git submodule update --init --recursive --depth 1
-          git apply --check "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
-          git apply "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
+          # The upstream Android patch has nearby upstream edits; use Git's 3-way
+          # application against the pinned source instead of strict context matching.
+          git apply --3way --check "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
+          git apply --3way "$GITHUB_WORKSPACE/mh4u/port/azahar/azahar-android.patch"
 
       - uses: actions/setup-java@v4
         with:
