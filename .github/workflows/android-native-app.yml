@@ -48,15 +48,12 @@ jobs:
 
       - name: Install Android SDK components
         run: |
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \\
-            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \\
-            "cmake;3.30.3" "ndk;$NDK_VERSION" >/dev/null
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmake;3.30.3" "ndk;$NDK_VERSION" >/dev/null
 
       - name: Build standalone MH4U APK (ARM64)
         working-directory: mh4u/port/android
         run: |
-          gradle --no-daemon --console=plain assembleDebug \\
-            -Pazahar.dir="$AZAHAR_DIR"
+          gradle --no-daemon --console=plain assembleDebug -Pazahar.dir="$AZAHAR_DIR"
 
       - name: Verify APK contents
         run: |
