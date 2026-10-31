@@ -1,6 +1,7 @@
 package org.mh4u.port
 
 import android.os.Bundle
+import android.util.Log
 import android.view.*
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
@@ -65,10 +66,19 @@ class EmulationActivity : ComponentActivity(), SurfaceHolder.Callback {
 
         Prefs.apply()
         gameThread = Thread({
-            val message = Native.run(game)
+            val message = try {
+                Native.run(game)
+            } catch (t: Throwable) {
+                // Report Java/JNI startup failures in the launcher instead of silently closing.
+                Log.e("MH4U", "Native.run failed", t)
+                "Native startup failed: ${t.javaClass.simpleName}: ${t.message ?: "no details"}"
+            }
             runOnUiThread {
                 ended = message
-                if (!isFinishing) { setResult(RESULT_OK, android.content.Intent().putExtra(EXTRA_MESSAGE, message)); finish() }
+                if (!isFinishing) {
+                    setResult(RESULT_OK, android.content.Intent().putExtra(EXTRA_MESSAGE, message))
+                    finish()
+                }
             }
         }, "mh4u-game").also { it.start() }
     }
